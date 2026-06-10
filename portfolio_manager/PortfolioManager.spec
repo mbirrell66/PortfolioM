@@ -1,25 +1,67 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+block_cipher = None
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=[],
+    hiddenimports=[
+        'PySide6.QtWidgets',
+        'PySide6.QtGui',
+        'PySide6.QtCore',
+        'PySide6.QtNetwork',
+        'sqlalchemy',
+        'pandas',
+        'numpy',
+        'yfinance',
+        'portfolio_manager.database.models',
+        'portfolio_manager.database.tax_models',
+        'portfolio_manager.database.personal_finance_models',
+        'portfolio_manager.services.portfolio_service',
+        'portfolio_manager.services.personal_finance_service',
+        'portfolio_manager.services.tax_service',
+        'portfolio_manager.gui.main_window',
+        'portfolio_manager.gui.tax_management_tab',
+        'portfolio_manager.gui.tax_event_dialog',
+        'portfolio_manager.gui.capital_gains_dialog',
+        'portfolio_manager.gui.performance_tab',
+        'portfolio_manager.gui.dashboard_widget',
+        'portfolio_manager.gui.report_tab',
+        'portfolio_manager.gui.settings_tab',
+        'portfolio_manager.gui.benchmark_comparison_tab',
+        'portfolio_manager.gui.portfolio_optimization_tab',
+        'portfolio_manager.gui.personal_finance_tab',
+        'portfolio_manager.gui.add_position_dialog',
+        'portfolio_manager.gui.edit_position_dialog',
+        'portfolio_manager.gui.dividend_dialog',
+        'portfolio_manager.gui.stock_split_dialog',
+        'portfolio_manager.services.market_data',
+        'portfolio_manager.services.portfolio_analytics',
+        'portfolio_manager.services.portfolio_optimizer',
+        'portfolio_manager.gui.news_tab',
+        'portfolio_manager.gui.portfolio_table',
+        'portfolio_manager.config.config_manager',
+        'portfolio_manager.database.database',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
     noarchive=False,
-    optimize=0,
 )
-pyz = PYZ(a.pure)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
+    a.zipfiles,
     a.datas,
     [],
     name='PortfolioManager',
@@ -35,4 +77,15 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='PortfolioManager',
 )

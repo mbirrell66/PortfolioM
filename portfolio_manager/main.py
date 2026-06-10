@@ -8,7 +8,9 @@ import os
 from pathlib import Path
 
 # Add the project root to Python path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+project_root = str(Path(__file__).parent.parent)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from PySide6.QtWidgets import QApplication
 from gui.main_window import MainWindow
