@@ -5,17 +5,15 @@ Portfolio Manager - Main Application Entry Point
 
 import sys
 import os
-from pathlib import Path
 
 # Add the project root to Python path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PySide6.QtWidgets import QApplication
-from gui.main_window import MainWindow
-from services.portfolio_service import PortfolioService
-from services.personal_finance_service import PersonalFinanceService
-from services.tax_service import TaxService
-from database.database import init_database
+from portfolio_manager.gui.main_window import MainWindow
+from portfolio_manager.services.portfolio_service import PortfolioService
+from portfolio_manager.services.personal_finance_service import PersonalFinanceService
+from portfolio_manager.database.database import init_database
 
 def main():
     """Main application entry point."""
@@ -31,10 +29,9 @@ def main():
     # Create services
     portfolio_service = PortfolioService()
     personal_finance_service = PersonalFinanceService()
-    tax_service = TaxService()
     
     # Create and show main window
-    main_window = MainWindow(portfolio_service, personal_finance_service, tax_service)
+    main_window = MainWindow(portfolio_service, personal_finance_service)
     main_window.show()
     
     # Run the application

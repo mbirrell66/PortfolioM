@@ -42,6 +42,33 @@ class Dividend(Base):
     def __repr__(self):
         return f"<Dividend(id={self.id}, ticker='{self.ticker}', amount={self.total_amount})>"
 
+class DividendEvent(Base):
+    """Database model for dividend events including reinvestment details."""
+    
+    __tablename__ = 'dividend_events'
+    
+    id = Column(Integer, primary_key=True)
+    ticker = Column(String(10), nullable=False)
+    ex_dividend_date = Column(Date, nullable=True)
+    payment_date = Column(Date, nullable=False)
+    dividend_per_share = Column(Float, nullable=False)
+    shares_owned = Column(Integer, nullable=False)
+    cash_received = Column(Float, nullable=False)
+    shares_purchased = Column(Integer, nullable=True)
+    reinvestment_price = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class StockSplit(Base):
+    """Database model for stock splits."""
+    
+    __tablename__ = 'stock_splits'
+    
+    id = Column(Integer, primary_key=True)
+    ticker = Column(String(10), nullable=False)
+    split_date = Column(Date, nullable=False)
+    old_ratio = Column(Integer, nullable=False)
+    new_ratio = Column(Integer, nullable=False)
+
 class PortfolioSnapshot(Base):
     """Database model for portfolio snapshots."""
     

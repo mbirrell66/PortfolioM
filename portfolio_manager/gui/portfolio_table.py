@@ -21,6 +21,7 @@ class PortfolioTableModel(QAbstractTableModel):
             "Market Value", "Gain/Loss", "Gain %", "Purchase Date"
         ]
         self.portfolio_service = PortfolioService()
+        self._current_prices = {}  # Cache for current prices
     
     def load_data(self):
         """Load positions from database."""
@@ -33,7 +34,23 @@ class PortfolioTableModel(QAbstractTableModel):
     
     def refresh_data(self):
         """Refresh data in the model."""
+        self._current_prices = {}  # Clear cache
         self.load_data()
+    
+    def _get_current_prices(self):
+        """Get current prices for all positions efficiently."""
+        if not self._current_prices:
+            # Get all unique tickers
+            tickers = [position.ticker for position in self.positions]
+            # Remove duplicates
+            unique_tickers = list(set(tickers))
+            
+            # Fetch all current prices at once
+            self._current_prices = {}
+            for ticker in unique_tickers:
+                self._current_prices[ticker] = self.portfolio_service.get_current_price(ticker)
+        
+        return self._current_prices
     
     def rowCount(self, parent=QModelIndex()):
         """Return number of rows."""
@@ -59,17 +76,20 @@ class PortfolioTableModel(QAbstractTableModel):
                 return f"${position.purchase_price:.2f}"
             elif index.column() == 3:  # Current Price
                 # Get current price for this position
-                current_price = self.portfolio_service.get_current_price(position.ticker)
+                current_prices = self._get_current_prices()
+                current_price = current_prices.get(position.ticker, 0)
                 return f"${current_price:.2f}" if current_price > 0 else "N/A"
             elif index.column() == 4:  # Cost Basis
                 cost_basis = position.purchase_price * position.shares
                 return f"${cost_basis:.2f}"
             elif index.column() == 5:  # Market Value
-                current_price = self.portfolio_service.get_current_price(position.ticker)
+                current_prices = self._get_current_prices()
+                current_price = current_prices.get(position.ticker, 0)
                 market_value = current_price * position.shares
                 return f"${market_value:.2f}" if current_price > 0 else "N/A"
             elif index.column() == 6:  # Gain/Loss
-                current_price = self.portfolio_service.get_current_price(position.ticker)
+                current_prices = self._get_current_prices()
+                current_price = current_prices.get(position.ticker, 0)
                 if current_price > 0:
                     cost_basis = position.purchase_price * position.shares
                     market_value = current_price * position.shares
@@ -78,7 +98,8 @@ class PortfolioTableModel(QAbstractTableModel):
                 else:
                     return "N/A"
             elif index.column() == 7:  # Gain %
-                current_price = self.portfolio_service.get_current_price(position.ticker)
+                current_prices = self._get_current_prices()
+                current_price = current_prices.get(position.ticker, 0)
                 if current_price > 0:
                     cost_basis = position.purchase_price * position.shares
                     market_value = current_price * position.shares

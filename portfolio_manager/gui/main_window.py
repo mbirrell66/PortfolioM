@@ -7,31 +7,50 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QTableView
                               QHBoxLayout, QMenuBar, QMenu, QStatusBar,
                               QMessageBox, QFileDialog, QLabel)
 from PySide6.QtGui import QAction
+import sys
+import os
+
+# Add the project root to sys.path to ensure imports work correctly
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from gui.edit_position_dialog import EditPositionDialog
 from gui.dashboard_widget import DashboardWidget
 from gui.performance_tab import PerformanceTab
 from gui.settings_tab import SettingsTab
 from gui.dividend_dialog import DividendEntryDialog
+from gui.stock_split_dialog import StockSplitDialog
+from gui.benchmark_comparison_tab import BenchmarkComparisonTab
+from gui.report_tab import ReportTab
+from gui.news_tab import NewsTab
+from gui.portfolio_optimization_tab import PortfolioOptimizationTab
+from gui.personal_finance_tab import PersonalFinanceTab
+from gui.tax_management_tab import TaxManagementTab
+from services.tax_service import TaxService
+
 from PySide6.QtCore import Qt
 from gui.portfolio_table import PortfolioTableModel, PortfolioTableView
 from gui.add_position_dialog import AddPositionDialog
 from database.database import init_database
 from services.portfolio_service import PortfolioService
+from services.personal_finance_service import PersonalFinanceService
 
 class MainWindow(QMainWindow):
     """Main application window."""
     
-    def __init__(self):
+    def __init__(self, portfolio_service: PortfolioService, personal_finance_service: PersonalFinanceService, tax_service: TaxService):
         """Initialize main window."""
         super().__init__()
         self.setWindowTitle("Portfolio Manager")
         self.setGeometry(100, 100, 1200, 800)
-        
-        # Initialize database
-        init_database()
+        # Maximize the window
+        self.showMaximized()
         
         # Initialize services
-        self.portfolio_service = PortfolioService()
+        self.portfolio_service = portfolio_service
+        self.personal_finance_service = personal_finance_service
+        self.tax_service = tax_service
         
         # Create UI elements
         self.create_menu_bar()
@@ -71,6 +90,11 @@ class MainWindow(QMainWindow):
         add_dividend_action.setStatusTip("Add dividend payment")
         edit_menu.addAction(add_dividend_action)
         
+        # Add stock split action
+        add_stock_split_action = QAction("&Add Stock Split", self)
+        add_stock_split_action.setStatusTip("Add stock split")
+        edit_menu.addAction(add_stock_split_action)
+        
         # Edit position action
         edit_position_action = QAction("&Edit Position", self)
         edit_position_action.setShortcut("Ctrl+E")
@@ -92,6 +116,7 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         add_position_action.triggered.connect(self.show_add_position_dialog)
         add_dividend_action.triggered.connect(self.show_dividend_dialog)
+        add_stock_split_action.triggered.connect(self.show_stock_split_dialog)
         edit_position_action.triggered.connect(self.edit_position)
         delete_position_action.triggered.connect(self.delete_position)
         reset_action.triggered.connect(self.reset_application)
@@ -109,6 +134,11 @@ class MainWindow(QMainWindow):
         add_dividend_btn = QPushButton("Add Dividend")
         add_dividend_btn.clicked.connect(self.show_dividend_dialog)
         toolbar.addWidget(add_dividend_btn)
+        
+        # Add stock split button
+        add_stock_split_btn = QPushButton("Add Stock Split")
+        add_stock_split_btn.clicked.connect(self.show_stock_split_dialog)
+        toolbar.addWidget(add_stock_split_btn)
         
         # Edit position button
         edit_position_btn = QPushButton("Edit Position")
@@ -151,6 +181,28 @@ class MainWindow(QMainWindow):
         # Create performance tab
         performance_tab = PerformanceTab()
         tab_widget.addTab(performance_tab, "Performance")
+        
+        # Create benchmark comparison tab
+        benchmark_tab = BenchmarkComparisonTab()
+        tab_widget.addTab(benchmark_tab, "Benchmark Comparison")
+        
+        # Create report tab
+        report_tab = ReportTab(self.portfolio_service)
+        tab_widget.addTab(report_tab, "Reports")
+        
+        # Create news tab
+        news_tab = NewsTab()
+        tab_widget.addTab(news_tab, "News")
+        
+        # Create personal finance tab
+        self.personal_finance_tab = PersonalFinanceTab(self.personal_finance_service)
+        tab_widget.addTab(self.personal_finance_tab, "Personal Finance")
+        
+        # Create tax management tab
+        self.tax_management_tab = TaxManagementTab(self.tax_service)
+        tab_widget.addTab(self.tax_management_tab, "Tax Management")
+        
+        
         
         # Create settings tab
         settings_tab = SettingsTab()
@@ -292,6 +344,22 @@ class MainWindow(QMainWindow):
         dialog = DividendEntryDialog(self)
         if dialog.exec():
             # Optionally refresh data after adding dividend
+            self.load_data()
+    
+    def show_stock_split_dialog(self):
+        """Show dialog to add a new stock split."""
+        # Check if a position is selected
+        selected_ticker = None
+        selection = self.portfolio_table.selectionModel().selectedRows()
+        if selection:
+            row = selection[0].row()
+            model = self.portfolio_table.model()
+            if isinstance(model, PortfolioTableModel):
+                selected_ticker = model.positions[row].ticker
+        
+        dialog = StockSplitDialog(self, selected_ticker)
+        if dialog.exec():
+            # Refresh data after adding stock split
             self.load_data()
     
     def reset_application(self):

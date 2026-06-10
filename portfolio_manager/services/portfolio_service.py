@@ -4,7 +4,7 @@ Portfolio service for Portfolio Manager
 
 from datetime import datetime, date
 from typing import List, Dict, Optional
-from database.models import Position, Dividend
+from database.models import Position, Dividend, DividendEvent, StockSplit
 from database.database import SessionLocal
 from services.market_data import MarketDataService
 
@@ -116,13 +116,84 @@ class PortfolioService:
     
     def get_dividends_for_position(self, position_id: int) -> List:
         """Get all dividends for a specific position."""
-        db = self.get_db()
+        db = SessionLocal()
         try:
             dividends = db.query(Dividend).filter(Dividend.position_id == position_id).all()
             return dividends
         except Exception as e:
             print(f"Error retrieving dividends: {e}")
             return []
+        finally:
+            db.close()
+    
+    def add_dividend_event(self, ticker: str, ex_dividend_date: date, payment_date: date,
+                          dividend_per_share: float, shares_owned: int,
+                          cash_received: float, shares_purchased: int = None,
+                          reinvestment_price: float = None) -> DividendEvent:
+        """Add a new dividend event to the database."""
+        db = SessionLocal()
+        try:
+            dividend_event = DividendEvent(
+                ticker=ticker,
+                ex_dividend_date=ex_dividend_date,
+                payment_date=payment_date,
+                dividend_per_share=dividend_per_share,
+                shares_owned=shares_owned,
+                cash_received=cash_received,
+                shares_purchased=shares_purchased,
+                reinvestment_price=reinvestment_price
+            )
+            db.add(dividend_event)
+            db.commit()
+            db.refresh(dividend_event)
+            return dividend_event
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+    
+    def get_dividend_events(self) -> List[DividendEvent]:
+        """Get all dividend events."""
+        db = SessionLocal()
+        try:
+            return db.query(DividendEvent).all()
+        finally:
+            db.close()
+    
+    def get_dividend_events_for_ticker(self, ticker: str) -> List[DividendEvent]:
+        """Get all dividend events for a specific ticker."""
+        db = SessionLocal()
+        try:
+            return db.query(DividendEvent).filter(DividendEvent.ticker == ticker).all()
+        finally:
+            db.close()
+    
+    def add_stock_split(self, ticker: str, split_date: date, old_ratio: int, new_ratio: int) -> StockSplit:
+        """Add a new stock split to the database."""
+        db = SessionLocal()
+        try:
+            stock_split = StockSplit(
+                ticker=ticker,
+                split_date=split_date,
+                old_ratio=old_ratio,
+                new_ratio=new_ratio
+            )
+            db.add(stock_split)
+            db.commit()
+            db.refresh(stock_split)
+            return stock_split
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+    
+    def get_stock_splits(self) -> List[StockSplit]:
+        """Get all stock splits."""
+        db = SessionLocal()
+        try:
+            return db.query(StockSplit).all()
         finally:
             db.close()
     

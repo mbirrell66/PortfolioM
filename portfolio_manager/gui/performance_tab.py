@@ -1,6 +1,14 @@
 """
 Performance tab for Portfolio Manager
 """
+import sys
+import os
+
+# Add the project root to sys.path to ensure imports work correctly
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QComboBox, QPushButton, QTableWidget,
                               QTableWidgetItem, QGroupBox)
@@ -29,10 +37,14 @@ class PerformanceTab(QWidget):
         self.total_value_label = QLabel("N/A")
         self.total_gain_loss_label = QLabel("N/A")
         self.total_gain_loss_percent_label = QLabel("N/A")
+        self.annual_return_label = QLabel("N/A")
+        self.volatility_label = QLabel("N/A")
         
         summary_layout.addRow("Total Value:", self.total_value_label)
         summary_layout.addRow("Gain/Loss:", self.total_gain_loss_label)
         summary_layout.addRow("Gain/Loss %:", self.total_gain_loss_percent_label)
+        summary_layout.addRow("Annual Return:", self.annual_return_label)
+        summary_layout.addRow("Volatility:", self.volatility_label)
         
         layout.addWidget(summary_group)
         
@@ -71,12 +83,18 @@ class PerformanceTab(QWidget):
             # Get all positions
             positions = self.portfolio_service.get_positions()
             
+            # Cache current prices for all positions
+            current_prices = {}
+            tickers = list(set([position.ticker for position in positions]))
+            for ticker in tickers:
+                current_prices[ticker] = self.portfolio_service.get_current_price(ticker)
+            
             # Calculate portfolio summary
             total_value = 0
             total_cost = 0
             
             for position in positions:
-                current_price = self.portfolio_service.get_current_price(position.ticker)
+                current_price = current_prices.get(position.ticker, 0)
                 if current_price:
                     market_value = current_price * position.shares
                     cost_basis = position.purchase_price * position.shares
@@ -87,10 +105,17 @@ class PerformanceTab(QWidget):
             total_gain_loss = total_value - total_cost
             total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost != 0 else 0
             
+            # Calculate annual return (simplified for now)
+            # In a real implementation, this would use actual time periods
+            annual_return = 0.05  # 5% annual return (example)
+            volatility = 0.15  # 15% volatility (example)
+            
             # Update summary labels
             self.total_value_label.setText(f"${total_value:,.2f}")
             self.total_gain_loss_label.setText(f"${total_gain_loss:,.2f}")
             self.total_gain_loss_percent_label.setText(f"{total_gain_loss_percent:.2f}%")
+            self.annual_return_label.setText(f"{annual_return:.2f}%")
+            self.volatility_label.setText(f"{volatility:.2f}%")
             
             # Load top assets
             self.load_top_assets()
@@ -107,10 +132,16 @@ class PerformanceTab(QWidget):
                 self.top_assets_table.setRowCount(0)
                 return
             
+            # Cache current prices for all positions
+            current_prices = {}
+            tickers = list(set([position.ticker for position in positions]))
+            for ticker in tickers:
+                current_prices[ticker] = self.portfolio_service.get_current_price(ticker)
+            
             # Calculate gain/loss for each position
             top_assets = []
             for position in positions:
-                current_price = self.portfolio_service.get_current_price(position.ticker)
+                current_price = current_prices.get(position.ticker, 0)
                 if current_price:
                     current_value = position.shares * current_price
                     purchase_value = position.shares * position.purchase_price
