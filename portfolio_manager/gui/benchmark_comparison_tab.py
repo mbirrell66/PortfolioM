@@ -12,31 +12,23 @@ if project_root not in sys.path:
 
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QComboBox, QPushButton, QTableWidget,
-                              QTableWidgetItem, QGroupBox, QSplitter)
+                              QTableWidgetItem, QGroupBox, QSplitter, QMessageBox)
 from PySide6.QtCore import Qt
 import pyqtgraph as pg
 import logging
 import numpy as np
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
 class BenchmarkComparisonTab(QWidget):
     """Advanced benchmark comparison tab with charts and detailed analytics."""
     
-    def __init__(self):
+    def __init__(self, portfolio_service=None, market_data_service=None):
         """Initialize benchmark comparison tab."""
         super().__init__()
-        self.portfolio_service = None
-        self.market_data_service = None
-        self.init_ui()
-    
-    def set_services(self, portfolio_service, market_data_service):
-        """Set the service instances for data access."""
         self.portfolio_service = portfolio_service
         self.market_data_service = market_data_service
-        # Load initial data once services are available
-        self.load_benchmark_data()
+        self.init_ui()
     
     def init_ui(self):
         """Initialize user interface."""
@@ -63,13 +55,13 @@ class BenchmarkComparisonTab(QWidget):
         controls_layout = QHBoxLayout(controls_group)
         
         self.benchmark_combo = QComboBox()
-        self.benchmark_combo.addItems(["S&P 500 (^GSPC)", "NASDAQ (^IXIC)", "DOW (^DJI)", "RUSSELL 2000 (^RUT)", "Custom"])
+        self.benchmark_combo.addItems(["S&P 500 (^GSPC)", "NASDAQ (^IXIC)", "DOW (^DJI)", "RUSSELL 2000 (^RUT)"])
         
         self.date_range_combo = QComboBox()
         self.date_range_combo.addItems(["1Y", "3Y", "5Y", "10Y", "All Time"])
         
         self.compare_btn = QPushButton("Compare")
-        self.compare_btn.clicked.connect(self.load_benchmark_data)
+        self.compare_btn.clicked.connect(self.on_compare_clicked)
         
         controls_layout.addWidget(QLabel("Benchmark:"))
         controls_layout.addWidget(self.benchmark_combo)
@@ -120,23 +112,20 @@ class BenchmarkComparisonTab(QWidget):
         # Set layout properties
         layout.setContentsMargins(10, 10, 10, 10)
     
-    def load_benchmark_data(self):
-        """Load benchmark comparison data and update charts."""
+    def on_compare_clicked(self):
+        """Handle compare button click."""
         try:
             if not self.portfolio_service:
-                logger.error("Portfolio service not set")
-                self.portfolio_value_label.setText("Service Error")
+                QMessageBox.warning(self, "Error", "Portfolio service not available")
                 return
             
             # Get actual portfolio data
             portfolio_value = self.portfolio_service.get_portfolio_value()
-            total_cost_basis = self.portfolio_service.get_portfolio_cost_basis()
-            total_gain_loss = self.portfolio_service.get_total_gain_loss()
             total_gain_loss_percent = self.portfolio_service.get_total_gain_loss_percent()
             
             # Calculate portfolio metrics
             portfolio_return = total_gain_loss_percent / 100 if total_gain_loss_percent != 0 else 0
-            portfolio_volatility = 0.15  # Default volatility (15%) - in production, calculate from historical data
+            portfolio_volatility = 0.15  # Default volatility (15%)
             
             # Calculate Sharpe ratio (assuming risk-free rate of 2%)
             risk_free_rate = 0.02
@@ -168,9 +157,7 @@ class BenchmarkComparisonTab(QWidget):
         except Exception as e:
             logger.error(f"Error loading benchmark data: {e}")
             print(f"Error loading benchmark data: {e}")
-            # Show error message
-            self.portfolio_value_label.setText("Error")
-            self.benchmark_value_label.setText("Error")
+            QMessageBox.critical(self, "Error", f"Error loading benchmark data: {str(e)}")
     
     def get_selected_benchmark(self):
         """Get the selected benchmark ticker."""
@@ -184,7 +171,7 @@ class BenchmarkComparisonTab(QWidget):
         elif selected_text == "RUSSELL 2000 (^RUT)":
             return "^RUT"
         else:
-            return "^GSPC"  # Default to S&P 500
+            return "^GSPC"
     
     def update_comparison_chart(self, portfolio_value, benchmark_value):
         """Update the comparison chart with portfolio vs benchmark data."""
@@ -193,32 +180,28 @@ class BenchmarkComparisonTab(QWidget):
             self.chart_widget.clear()
             
             # Generate synthetic historical data based on current values
-            # This simulates 12 months of performance data
             x_data = np.arange(0, 12, 1)  # 12 months of data
             
-            # Create realistic performance curves based on current values
-            # Start from a lower value and grow to current value
-            portfolio_start = portfolio_value / 1.3  # Start at ~77% of current value
+            # Create realistic performance curves
+            portfolio_start = portfolio_value / 1.3
             benchmark_start = benchmark_value / 1.3
             
             portfolio_data = []
             benchmark_data = []
             
             for i in range(12):
-                # Generate growth factors (slightly random to look realistic)
-                growth_factor = 1 + (i * 0.02) + (np.random.randn() * 0.01)
                 portfolio_data.append(portfolio_start * (1.04 ** i))
                 benchmark_data.append(benchmark_start * (1.03 ** i))
             
             # Create portfolio line
-            portfolio_plot = self.chart_widget.plot(x_data, portfolio_data, 
-                                                   pen=pg.mkPen('g', width=2), 
-                                                   name='Portfolio')
+            self.chart_widget.plot(x_data, portfolio_data, 
+                                  pen=pg.mkPen('g', width=2), 
+                                  name='Portfolio')
             
             # Create benchmark line
-            benchmark_plot = self.chart_widget.plot(x_data, benchmark_data, 
-                                                   pen=pg.mkPen('r', width=2), 
-                                                   name='Benchmark')
+            self.chart_widget.plot(x_data, benchmark_data, 
+                                  pen=pg.mkPen('r', width=2), 
+                                  name='Benchmark')
             
             # Add legend
             self.chart_widget.addLegend()
