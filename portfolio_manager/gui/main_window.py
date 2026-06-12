@@ -183,8 +183,16 @@ class MainWindow(QMainWindow):
         tab_widget.addTab(performance_tab, "Performance")
         
         # Create benchmark comparison tab
-        benchmark_tab = BenchmarkComparisonTab()
-        tab_widget.addTab(benchmark_tab, "Benchmark Comparison")
+        try:
+            benchmark_tab = BenchmarkComparisonTab()
+            tab_widget.addTab(benchmark_tab, "Benchmark Comparison")
+        except Exception as e:
+            print(f"Error creating benchmark tab: {e}")
+            # Create a simple placeholder tab if the benchmark tab fails
+            placeholder_tab = QWidget()
+            layout = QVBoxLayout(placeholder_tab)
+            layout.addWidget(QLabel("Benchmark Comparison tab failed to initialize"))
+            tab_widget.addTab(placeholder_tab, "Benchmark Comparison")
         
         # Create report tab
         report_tab = ReportTab(self.portfolio_service)
