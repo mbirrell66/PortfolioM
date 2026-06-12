@@ -40,8 +40,8 @@ class RSSFeedWorker(QThread):
                     break
                     
                 try:
-                    # Parse the RSS feed with timeout
-                    feed = feedparser.parse(feed_url, timeout=10)
+                    # Parse the RSS feed
+                    feed = feedparser.parse(feed_url)
                     
                     # Process entries
                     for entry in feed.entries[:10]:  # Limit to 10 entries per feed
@@ -62,15 +62,20 @@ class RSSFeedWorker(QThread):
                         self.progress_updated.emit(i + 1, total_feeds)
                         
                 except Exception as e:
+                    print(f"Error fetching {feed_url}: {e}")
                     self.error_occurred.emit(f"Error fetching {feed_url}: {str(e)}")
                     continue
                     
             # Sort by publication date (newest first)
-            all_entries.sort(key=lambda x: x.get('published', ''), reverse=True)
+            if all_entries:
+                all_entries.sort(key=lambda x: x.get('published', ''), reverse=True)
             
             self.feed_fetched.emit(all_entries)
             
         except Exception as e:
+            print(f"Error in RSS worker: {e}")
+            import traceback
+            traceback.print_exc()
             self.error_occurred.emit(f"Error in RSS worker: {str(e)}")
 
 
@@ -78,7 +83,7 @@ class NewsFeedManager:
     """Manages RSS feeds for the news system."""
     
     def __init__(self):
-       # Predefined financial RSS feeds
+        # Predefined financial RSS feeds
         self.default_feeds = [
             "https://feeds.bbci.co.uk/news/business/rss.xml",
             "https://feeds.reuters.com/reuters/businessNews",
@@ -106,6 +111,7 @@ class NewsTab(QWidget):
         self.news_manager = NewsFeedManager()
         self.current_entries = []
         self.worker = None
+        self.timer = None
         self.init_ui()
         self.load_default_feeds()
         self.setup_feeds_timer()
@@ -170,34 +176,58 @@ class NewsTab(QWidget):
         
     def setup_feeds_timer(self):
         """Set up auto-refresh timer."""
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.refresh_news)
-        if self.auto_refresh_checkbox.isChecked():
-            self.timer.start(15 * 60 * 1000)  # 15 minutes in milliseconds
+        try:
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.refresh_news)
+            if self.auto_refresh_checkbox.isChecked():
+                self.timer.start(15 * 60 * 1000)  # 15 minutes in milliseconds
+        except Exception as e:
+            print(f"Error setting up timer: {e}")
             
     def refresh_news(self):
         """Fetch news from RSS feeds."""
-        if self.worker and self.worker.isRunning():
-            return
+        try:
+            if self.worker and self.worker.isRunning():
+                self.status_bar.showMessage("News refresh already in progress...")
+                return
+                
+            self.status_bar.showMessage("Fetching news feeds...")
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setValue(0)
             
-        self.status_bar.showMessage("Fetching news feeds...")
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setValue(0)
-        
-        # Create and start worker thread
-        self.worker = RSSFeedWorker(self.news_manager.get_all_feeds())
-        self.worker.feed_fetched.connect(self.on_feeds_fetched)
-        self.worker.error_occurred.connect(self.on_error)
-        self.worker.progress_updated.connect(self.on_progress_update)
-        self.worker.start()
-        
+            # Create and start worker thread
+            self.worker = RSSFeedWorker(self.news_manager.get_all_feeds())
+            self.worker.feed_fetched.connect(self.on_feeds_fetched)
+            self.worker.error_occurred.connect(self.on_error)
+            self.worker.progress_updated.connect(self.on_progress_update)
+            
+            self.worker.start()
+            
+        except Exception as e:
+            self.status_bar.showMessage(f"Error starting news refresh: {str(e)}")
+            print(f"Error in refresh_news: {e}")
+            import traceback
+            traceback.print_exc()
+            
     def on_feeds_fetched(self, entries: List[Dict]):
         """Handle fetched feeds."""
-        self.current_entries = entries
-        self.display_news()
-        self.status_bar.showMessage(f"Fetched {len(entries)} news items")
-        self.progress_bar.setVisible(False)
-        
+        try:
+            self.current_entries = entries
+            self.display_news()
+            self.status_bar.showMessage(f"Fetched {len(entries)} news items")
+            self.progress_bar.setVisible(False)
+        except Exception as e:
+            print(f"Error in on_feeds_fetched: {e}")
+            self.status_bar.showMessage(f"Error displaying news: {str(e)}")
+            self.progress_bar.setVisible(False)
+            
+    def on_progress_update(self, current: int, total: int):
+        """Handle progress updates from worker."""
+        try:
+            self.progress_bar.setValue(int((current / total) * 100))
+        except Exception as e:
+            print(f"Error in on_progress_update: {e}")
+            
     def display_news(self):
         """Display news in table."""
         self.news_table.setRowCount(len(self.current_entries))
@@ -222,17 +252,6 @@ class NewsTab(QWidget):
             
     def on_error(self, error_msg: str):
         """Handle errors."""
+        print(f"News Error: {error_msg}")
         self.status_bar.showMessage(f"Error: {error_msg}")
         self.progress_bar.setVisible(False)
-        
-    def on_progress_update(self, current: int, total: int):
-        """Update progress bar."""
-        self.progress_bar.setMaximum(total)
-        self.progress_bar.setValue(current)
-        
-    def closeEvent(self, event):
-        """Handle window closing."""
-        if self.worker and self.worker.isRunning():
-            self.worker.running = False
-            self.worker.wait()
-        event.accept()

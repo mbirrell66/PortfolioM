@@ -238,3 +238,13 @@ class PortfolioService:
         if total_cost != 0:
             return ((total_value - total_cost) / total_cost) * 100
         return 0.0
+    
+    def get_portfolio_cost_basis(self) -> float:
+        """Get total portfolio cost basis."""
+        positions = self.get_positions()
+        total_cost = 0
+        
+        for position in positions:
+            total_cost += position.purchase_price * position.shares
+            
+        return total_cost
