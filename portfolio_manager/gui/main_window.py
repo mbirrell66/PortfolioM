@@ -184,7 +184,10 @@ class MainWindow(QMainWindow):
         
         # Create benchmark comparison tab
         try:
+            from services.market_data import MarketDataService
             benchmark_tab = BenchmarkComparisonTab()
+            # Set services for data access
+            benchmark_tab.set_services(self.portfolio_service, MarketDataService())
             tab_widget.addTab(benchmark_tab, "Benchmark Comparison")
         except Exception as e:
             print(f"Error creating benchmark tab: {e}")
