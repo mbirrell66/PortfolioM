@@ -71,6 +71,12 @@ class AddPositionDialog(QDialog):
         self.shares_spin = QSpinBox()
         self.shares_spin.setRange(1, 999999)
         
+        self.buy_commission_spin = QDoubleSpinBox()
+        self.buy_commission_spin.setRange(0.0, 9999.99)
+        self.buy_commission_spin.setDecimals(2)
+        self.buy_commission_spin.setPrefix("$")
+        self.buy_commission_spin.setValue(0.0)
+
         self.notes_text = QTextEdit()
         self.notes_text.setMaximumHeight(100)
     
@@ -88,6 +94,7 @@ class AddPositionDialog(QDialog):
         form_layout.addRow("Purchase Date", self.purchase_date_edit)
         form_layout.addRow("Purchase Price *", self.purchase_price_spin)
         form_layout.addRow("Shares *", self.shares_spin)
+        form_layout.addRow("Buy Commission", self.buy_commission_spin)
         form_layout.addRow("Notes", self.notes_text)
         
         layout.addLayout(form_layout)
@@ -141,12 +148,14 @@ class AddPositionDialog(QDialog):
                 shares = self.shares_spin.value()
                 notes = self.notes_text.toPlainText().strip()
                 
+                buy_commission = self.buy_commission_spin.value()
                 self.portfolio_service.add_position(
                     ticker=ticker,
                     company_name=company_name or ticker,
                     purchase_date=purchase_date,
                     purchase_price=purchase_price,
                     shares=shares,
+                    buy_commission=buy_commission,
                     notes=notes
                 )
                 

@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont
 from services.personal_finance_service import PersonalFinanceService
+from services.portfolio_service import PortfolioService
 from database.personal_finance_models import IncomeCategory, ExpenseCategory
 
 
@@ -98,10 +99,12 @@ _TAB_SS = """
 class PersonalFinanceTab(QWidget):
     """Main tab for personal finance tracking."""
     
-    def __init__(self, personal_finance_service: PersonalFinanceService):
+    def __init__(self, personal_finance_service: PersonalFinanceService,
+                 portfolio_service=None):
         """Initialize the personal finance tab."""
         super().__init__()
         self.personal_finance_service = personal_finance_service
+        self.portfolio_service = portfolio_service
         self.setup_ui()
         self.load_data()
     
@@ -132,7 +135,11 @@ class PersonalFinanceTab(QWidget):
         # Add summary tab
         summary_tab = SummaryTab(self.personal_finance_service)
         tab_widget.addTab(summary_tab, "Summary")
-        
+
+        # Add ledger tab
+        ledger_tab = LedgerTab(self.personal_finance_service, self.portfolio_service)
+        tab_widget.addTab(ledger_tab, "Ledger")
+
         layout.addWidget(tab_widget)
     
     def load_data(self):
@@ -652,3 +659,430 @@ class SummaryTab(QWidget):
         self.income_label.setText("$2,500.00")
         self.expenses_label.setText("$1,800.00")
         self.net_label.setText("$700.00")
+
+
+class LedgerTab(QWidget):
+    """Full financial ledger — portfolio buys/sells, dividends, income, expenses,
+    plus manually added deposits and withdrawals."""
+
+    def __init__(self, personal_finance_service: PersonalFinanceService,
+                 portfolio_service=None):
+        super().__init__()
+        self.pf_service = personal_finance_service
+        self.port_service = portfolio_service
+        self._all_rows = []      # (date, type, desc, debit, credit, balance, notes, ledger_id)
+        self._visible_rows = []  # filtered subset, parallel to table rows
+        self.setup_ui()
+        self.load_data()
+
+    # ------------------------------------------------------------------
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+
+        # Toolbar row
+        toolbar = QHBoxLayout()
+        toolbar.addWidget(QLabel("Type:"))
+        self.type_filter = QComboBox()
+        self.type_filter.addItems([
+            "All", "Deposit", "Withdrawal",
+            "Buy", "Sell", "Dividend", "Income", "Expense",
+        ])
+        self.type_filter.currentIndexChanged.connect(self._apply_filter)
+        toolbar.addWidget(self.type_filter)
+        toolbar.addStretch()
+
+        add_btn = QPushButton("+ Add Transaction")
+        add_btn.setToolTip("Record a deposit or withdrawal")
+        add_btn.clicked.connect(self._add_transaction)
+        toolbar.addWidget(add_btn)
+
+        self.delete_btn = QPushButton("Delete")
+        self.delete_btn.setToolTip("Delete the selected deposit / withdrawal")
+        self.delete_btn.setEnabled(False)
+        self.delete_btn.clicked.connect(self._delete_transaction)
+        toolbar.addWidget(self.delete_btn)
+
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.clicked.connect(self.load_data)
+        toolbar.addWidget(refresh_btn)
+        layout.addLayout(toolbar)
+
+        # Summary strip
+        self.summary_label = QLabel("")
+        self.summary_label.setStyleSheet(
+            "color: #DDE8FF; font-size: 12px; padding: 4px 0;"
+        )
+        layout.addWidget(self.summary_label)
+
+        # Ledger table
+        self.ledger_table = QTableWidget(0, 7)
+        self.ledger_table.setHorizontalHeaderLabels(
+            ["Date", "Type", "Description", "Debit", "Credit", "Balance", "Notes"]
+        )
+        self.ledger_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.ledger_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.ledger_table.setSelectionMode(QTableWidget.SingleSelection)
+        self.ledger_table.setAlternatingRowColors(True)
+        self.ledger_table.setShowGrid(False)
+        self.ledger_table.verticalHeader().setVisible(False)
+        self.ledger_table.horizontalHeader().setStretchLastSection(True)
+        self.ledger_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeToContents
+        )
+        self.ledger_table.itemSelectionChanged.connect(self._on_selection_changed)
+        layout.addWidget(self.ledger_table)
+
+    # ------------------------------------------------------------------
+    def load_data(self):
+        """Collect all transactions and display chronologically."""
+        # (date, type, desc, debit, credit, notes, ledger_id_or_None)
+        rows = []
+
+        # --- portfolio buys / sells ---
+        if self.port_service:
+            try:
+                for pos in self.port_service.get_positions():
+                    buy_comm = pos.buy_commission or 0.0
+                    amount = pos.purchase_price * pos.shares + buy_comm
+                    desc = f"{pos.ticker} — {pos.shares} sh @ ${pos.purchase_price:.2f}"
+                    if buy_comm:
+                        desc += f"  +comm ${buy_comm:.2f}"
+                    rows.append((pos.purchase_date, "Buy", desc,
+                                 amount, 0.0, pos.notes or "", None))
+                    if pos.sell_date:
+                        sell_comm = pos.sell_commission or 0.0
+                        proceeds = (pos.sell_price or 0.0) * pos.shares - sell_comm
+                        sdesc = (f"{pos.ticker} — {pos.shares} sh"
+                                 f" @ ${pos.sell_price:.2f}")
+                        if sell_comm:
+                            sdesc += f"  −comm ${sell_comm:.2f}"
+                        rows.append((pos.sell_date, "Sell", sdesc,
+                                     0.0, proceeds, "", None))
+            except Exception as e:
+                print(f"Ledger positions error: {e}")
+
+            # --- dividends ---
+            try:
+                from database.models import DividendEvent
+                from database.database import SessionLocal as _SL
+                db = _SL()
+                try:
+                    for div in db.query(DividendEvent).all():
+                        rows.append((div.payment_date, "Dividend",
+                                     f"{div.ticker} dividend",
+                                     0.0, div.cash_received, "", None))
+                finally:
+                    db.close()
+            except Exception as e:
+                print(f"Ledger dividends error: {e}")
+
+        # --- income / expenses ---
+        try:
+            from database.personal_finance_models import Income, Expense
+            from database.database import SessionLocal as _SL
+            db = _SL()
+            try:
+                for inc in db.query(Income).all():
+                    cat = inc.category.name if inc.category else "Income"
+                    dt = inc.date.date() if hasattr(inc.date, 'date') else inc.date
+                    rows.append((dt, "Income",
+                                 f"{cat}: {inc.description or ''}",
+                                 0.0, inc.amount, "", None))
+                for exp in db.query(Expense).all():
+                    cat = exp.category.name if exp.category else "Expense"
+                    dt = exp.date.date() if hasattr(exp.date, 'date') else exp.date
+                    rows.append((dt, "Expense",
+                                 f"{cat}: {exp.description or ''}",
+                                 exp.amount, 0.0, "", None))
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"Ledger income/expense error: {e}")
+
+        # --- manual deposits / withdrawals ---
+        try:
+            from database.personal_finance_models import LedgerTransaction
+            from database.database import SessionLocal as _SL
+            db = _SL()
+            try:
+                for txn in db.query(LedgerTransaction).all():
+                    dt = txn.date.date() if hasattr(txn.date, 'date') else txn.date
+                    if txn.transaction_type == "Deposit":
+                        rows.append((dt, "Deposit",
+                                     txn.description or "Deposit",
+                                     0.0, txn.amount, txn.notes or "", txn.id))
+                    else:
+                        rows.append((dt, "Withdrawal",
+                                     txn.description or "Withdrawal",
+                                     txn.amount, 0.0, txn.notes or "", txn.id))
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"Ledger transactions error: {e}")
+
+        # Sort chronologically
+        import datetime as _dt
+        rows.sort(key=lambda r: r[0] if r[0] else _dt.date.min)
+
+        # Build running balance (8-tuple: add balance after notes)
+        self._all_rows = []
+        balance = 0.0
+        for dt, rtype, desc, debit, credit, notes, lid in rows:
+            balance += credit - debit
+            self._all_rows.append(
+                (dt, rtype, desc, debit, credit, balance, notes, lid)
+            )
+
+        self._apply_filter()
+        self._update_summary()
+
+    # ------------------------------------------------------------------
+    def _apply_filter(self):
+        selected = self.type_filter.currentText()
+        self._visible_rows = [
+            r for r in self._all_rows
+            if selected == "All" or r[1] == selected
+        ]
+        self.ledger_table.setRowCount(0)
+        self.delete_btn.setEnabled(False)
+
+        type_colors = {
+            "Buy":        "#FF5068",
+            "Sell":       "#38D88A",
+            "Dividend":   "#5295FF",
+            "Income":     "#38D88A",
+            "Expense":    "#FF5068",
+            "Deposit":    "#38D88A",
+            "Withdrawal": "#FF5068",
+        }
+
+        from PySide6.QtGui import QColor as _QC
+        for dt, rtype, desc, debit, credit, balance, notes, lid in self._visible_rows:
+            row = self.ledger_table.rowCount()
+            self.ledger_table.insertRow(row)
+            date_str   = dt.strftime("%Y-%m-%d") if hasattr(dt, 'strftime') else str(dt)
+            debit_str  = f"${debit:.2f}"   if debit  else ""
+            credit_str = f"${credit:.2f}"  if credit else ""
+            bal_str    = f"${balance:.2f}"
+
+            for col, val in enumerate(
+                [date_str, rtype, desc, debit_str, credit_str, bal_str, notes]
+            ):
+                item = QTableWidgetItem(val)
+                if col == 1:
+                    item.setForeground(_QC(type_colors.get(rtype, "#DDE8FF")))
+                if col in (3, 4, 5):
+                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                if col == 5:
+                    item.setForeground(
+                        _QC("#38D88A") if balance >= 0 else _QC("#FF5068")
+                    )
+                self.ledger_table.setItem(row, col, item)
+
+    # ------------------------------------------------------------------
+    def _on_selection_changed(self):
+        """Enable Delete only when a manual transaction is selected."""
+        rows = self.ledger_table.selectedItems()
+        if not rows:
+            self.delete_btn.setEnabled(False)
+            return
+        row_idx = self.ledger_table.currentRow()
+        if row_idx < len(self._visible_rows):
+            lid = self._visible_rows[row_idx][7]   # ledger_id
+            self.delete_btn.setEnabled(lid is not None)
+        else:
+            self.delete_btn.setEnabled(False)
+
+    # ------------------------------------------------------------------
+    def _add_transaction(self):
+        dialog = _LedgerTransactionDialog(self)
+        if dialog.exec():
+            txn_type, desc, amount, dt, notes = dialog.get_data()
+            try:
+                from database.personal_finance_models import LedgerTransaction
+                from database.database import SessionLocal as _SL
+                import datetime as _dt
+                db = _SL()
+                try:
+                    txn = LedgerTransaction(
+                        date=_dt.datetime.combine(dt, _dt.time.min),
+                        transaction_type=txn_type,
+                        description=desc,
+                        amount=amount,
+                        notes=notes,
+                    )
+                    db.add(txn)
+                    db.commit()
+                finally:
+                    db.close()
+                self.load_data()
+            except Exception as e:
+                from PySide6.QtWidgets import QMessageBox as _MB
+                _MB.critical(self, "Error", f"Failed to save transaction: {e}")
+
+    # ------------------------------------------------------------------
+    def _delete_transaction(self):
+        row_idx = self.ledger_table.currentRow()
+        if row_idx < 0 or row_idx >= len(self._visible_rows):
+            return
+        lid = self._visible_rows[row_idx][7]
+        if lid is None:
+            return
+        from PySide6.QtWidgets import QMessageBox as _MB
+        reply = _MB.question(
+            self, "Delete Transaction",
+            "Delete this transaction? This cannot be undone.",
+            _MB.Yes | _MB.No, _MB.No
+        )
+        if reply != _MB.Yes:
+            return
+        try:
+            from database.personal_finance_models import LedgerTransaction
+            from database.database import SessionLocal as _SL
+            db = _SL()
+            try:
+                txn = db.query(LedgerTransaction).filter(
+                    LedgerTransaction.id == lid
+                ).first()
+                if txn:
+                    db.delete(txn)
+                    db.commit()
+            finally:
+                db.close()
+            self.load_data()
+        except Exception as e:
+            from PySide6.QtWidgets import QMessageBox as _MB2
+            _MB2.critical(self, "Error", f"Failed to delete transaction: {e}")
+
+    # ------------------------------------------------------------------
+    def _update_summary(self):
+        if not self._all_rows:
+            self.summary_label.setText("")
+            return
+        total_in  = sum(r[4] for r in self._all_rows)
+        total_out = sum(r[3] for r in self._all_rows)
+        net = self._all_rows[-1][5] if self._all_rows else 0.0
+        col = "#38D88A" if net >= 0 else "#FF5068"
+        self.summary_label.setText(
+            f"Total In: <b style='color:#38D88A'>${total_in:,.2f}</b>"
+            f"&nbsp;&nbsp;Total Out: <b style='color:#FF5068'>${total_out:,.2f}</b>"
+            f"&nbsp;&nbsp;Net Balance: <b style='color:{col}'>${net:,.2f}</b>"
+        )
+        self.summary_label.setTextFormat(Qt.RichText)
+
+
+# ---------------------------------------------------------------------------
+
+class _LedgerTransactionDialog(QDialog if 'QDialog' in dir() else object):
+    pass
+
+# Replace the stub above with the real implementation
+import importlib as _il
+from PySide6.QtWidgets import (QDialog as _QD, QVBoxLayout as _QVL,
+                                QFormLayout as _QFL, QComboBox as _QCB,
+                                QLineEdit as _QLI, QDoubleSpinBox as _QDSP,
+                                QDateEdit as _QDE, QTextEdit as _QTE,
+                                QDialogButtonBox as _QDBB, QGroupBox as _QGB)
+from PySide6.QtCore import QDate as _QDA
+
+class _LedgerTransactionDialog(_QD):
+    """Small dialog to enter a deposit or withdrawal."""
+
+    _SS = """
+        QDialog { background-color: #0F1117; }
+        QLabel { color: #7488B8; font-size: 13px; }
+        QGroupBox {
+            color: #7488B8; font-size: 12px; font-weight: 600;
+            border: 1px solid #222844; border-radius: 6px;
+            margin-top: 8px; padding-top: 8px;
+        }
+        QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
+        QComboBox, QDateEdit, QDoubleSpinBox, QLineEdit, QTextEdit {
+            background-color: #191D2E; color: #DDE8FF;
+            border: 1px solid #222844; border-radius: 6px;
+            padding: 6px 10px; font-size: 13px;
+        }
+        QComboBox:focus, QDateEdit:focus, QDoubleSpinBox:focus,
+        QLineEdit:focus, QTextEdit:focus { border-color: #5295FF; }
+        QComboBox::drop-down, QDateEdit::drop-down,
+        QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+            background-color: #222844; border: none;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #191D2E; color: #DDE8FF; border: 1px solid #222844;
+            selection-background-color: rgba(74,158,255,0.25);
+        }
+        QDialogButtonBox QPushButton {
+            background-color: #5295FF; color: #0F1117; border: none;
+            border-radius: 6px; padding: 8px 20px; font-size: 13px;
+            font-weight: 600; min-width: 80px;
+        }
+        QDialogButtonBox QPushButton:hover { background-color: #4080EE; }
+        QDialogButtonBox QPushButton:pressed { background-color: #327AE0; }
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Add Transaction")
+        self.setModal(True)
+        self.setMinimumWidth(380)
+        self.setStyleSheet(self._SS)
+        self._build()
+
+    def _build(self):
+        layout = _QVL(self)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(12)
+
+        grp = _QGB("Transaction Details")
+        form = _QFL(grp)
+        form.setSpacing(8)
+
+        self.type_combo = _QCB()
+        self.type_combo.addItems(["Deposit", "Withdrawal"])
+
+        self.date_edit = _QDE()
+        self.date_edit.setCalendarPopup(True)
+        self.date_edit.setDate(_QDA.currentDate())
+
+        self.desc_input = _QLI()
+        self.desc_input.setPlaceholderText("e.g., Bank transfer")
+
+        self.amount_spin = _QDSP()
+        self.amount_spin.setRange(0.01, 99_999_999.99)
+        self.amount_spin.setDecimals(2)
+        self.amount_spin.setPrefix("$")
+
+        self.notes_input = _QTE()
+        self.notes_input.setMaximumHeight(70)
+        self.notes_input.setPlaceholderText("Optional notes")
+
+        form.addRow("Type *", self.type_combo)
+        form.addRow("Date *", self.date_edit)
+        form.addRow("Description", self.desc_input)
+        form.addRow("Amount *", self.amount_spin)
+        form.addRow("Notes", self.notes_input)
+        layout.addWidget(grp)
+
+        btn_box = _QDBB(_QDBB.Ok | _QDBB.Cancel)
+        btn_box.accepted.connect(self._on_accept)
+        btn_box.rejected.connect(self.reject)
+        layout.addWidget(btn_box)
+
+    def _on_accept(self):
+        from PySide6.QtWidgets import QMessageBox as _MB
+        if self.amount_spin.value() <= 0:
+            _MB.warning(self, "Validation", "Amount must be greater than zero.")
+            return
+        self.accept()
+
+    def get_data(self):
+        return (
+            self.type_combo.currentText(),
+            self.desc_input.text().strip(),
+            self.amount_spin.value(),
+            self.date_edit.date().toPython(),
+            self.notes_input.toPlainText().strip(),
+        )

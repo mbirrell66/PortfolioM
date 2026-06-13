@@ -32,7 +32,7 @@ from gui.personal_finance_tab import PersonalFinanceTab
 from gui.tax_management_tab import TaxManagementTab
 from services.tax_service import TaxService
 
-from gui.portfolio_table import PortfolioTableModel, PortfolioTableView
+from gui.portfolio_table import PortfolioTableModel, PortfolioTableView, ClosedPositionsTableView
 from gui.add_position_dialog import AddPositionDialog
 from database.database import init_database
 from services.portfolio_service import PortfolioService
@@ -334,7 +334,7 @@ class MainWindow(QMainWindow):
         news_tab = NewsTab(self.portfolio_service)
         tab_widget.addTab(news_tab, get_icon("NEWS"), "News")
 
-        self.personal_finance_tab = PersonalFinanceTab(self.personal_finance_service)
+        self.personal_finance_tab = PersonalFinanceTab(self.personal_finance_service, self.portfolio_service)
         tab_widget.addTab(self.personal_finance_tab, get_icon("FINANCE"), "Personal Finance")
 
         self.tax_management_tab = TaxManagementTab(self.tax_service)
@@ -346,32 +346,67 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(tab_widget)
     
     def create_portfolio_tab(self):
-        """Create portfolio table tab."""
+        """Create portfolio tab with Open and Closed Positions sub-tabs."""
+        from PySide6.QtWidgets import QTabWidget as _QTW
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        
-        # Create table view
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # Sub-tab widget
+        self._portfolio_sub_tabs = _QTW()
+        self._portfolio_sub_tabs.setStyleSheet("""
+            QTabWidget::pane { background-color: #0F1117; border: 1px solid #222844; border-radius: 6px; margin-top: -1px; }
+            QTabBar::tab { background-color: #191D2E; color: #7488B8; padding: 8px 18px; font-size: 12px; font-weight: 500; border: 1px solid #222844; border-bottom: none; border-top-left-radius: 5px; border-top-right-radius: 5px; margin-right: 3px; }
+            QTabBar::tab:selected { background-color: #0F1117; color: #DDE8FF; font-weight: 600; }
+            QTabBar::tab:hover { color: #5295FF; }
+        """)
+
+        # Open positions pane
+        open_pane = QWidget()
+        open_layout = QVBoxLayout(open_pane)
+        open_layout.setContentsMargins(4, 4, 4, 4)
         self.portfolio_table = PortfolioTableView()
-        layout.addWidget(self.portfolio_table)
-        
-        # Create button layout
-        button_layout = QHBoxLayout()
-        add_btn = QPushButton("Add Position")
-        edit_btn = QPushButton("Edit Position")
-        delete_btn = QPushButton("Delete Position")
-        
-        add_btn.clicked.connect(self.show_add_position_dialog)
-        edit_btn.clicked.connect(self.edit_position)
-        delete_btn.clicked.connect(self.delete_position)
-        
-        button_layout.addWidget(add_btn)
-        button_layout.addWidget(edit_btn)
-        button_layout.addWidget(delete_btn)
-        button_layout.addStretch()
-        
-        layout.addLayout(button_layout)
-        
+        open_layout.addWidget(self.portfolio_table)
+
+        btn_row = QHBoxLayout()
+        for label, slot in [("Add Position", self.show_add_position_dialog),
+                             ("Edit Position", self.edit_position),
+                             ("Delete Position", self.delete_position)]:
+            b = QPushButton(label)
+            b.clicked.connect(slot)
+            btn_row.addWidget(b)
+        btn_row.addStretch()
+        open_layout.addLayout(btn_row)
+
+        # Closed positions pane
+        closed_pane = QWidget()
+        closed_layout = QVBoxLayout(closed_pane)
+        closed_layout.setContentsMargins(4, 4, 4, 4)
+        self.closed_positions_table = ClosedPositionsTableView()
+        closed_layout.addWidget(self.closed_positions_table)
+
+        closed_btn_row = QHBoxLayout()
+        edit_closed_btn = QPushButton("Edit / Reopen")
+        edit_closed_btn.clicked.connect(self._edit_closed_position)
+        closed_btn_row.addWidget(edit_closed_btn)
+        closed_btn_row.addStretch()
+        closed_layout.addLayout(closed_btn_row)
+
+        self._portfolio_sub_tabs.addTab(open_pane, "Open Positions")
+        self._portfolio_sub_tabs.addTab(closed_pane, "Closed Positions")
+        layout.addWidget(self._portfolio_sub_tabs)
         return tab
+
+    def _edit_closed_position(self):
+        """Edit a closed position (allows re-opening by clearing sell date)."""
+        position_id = self.closed_positions_table.get_selected_position_id()
+        if not position_id:
+            QMessageBox.warning(self, "Edit", "Select a position to edit.")
+            return
+        from gui.edit_position_dialog import EditPositionDialog
+        dialog = EditPositionDialog(position_id, self)
+        if dialog.exec():
+            self.load_data()
     
     def create_dashboard_tab(self):
         """Create dashboard tab."""
@@ -409,6 +444,8 @@ class MainWindow(QMainWindow):
     def load_data(self):
         """Load initial data."""
         self.portfolio_table.load_data()
+        if hasattr(self, 'closed_positions_table'):
+            self.closed_positions_table.load_data()
     
     def show_add_position_dialog(self):
         """Show dialog to add a new position."""
