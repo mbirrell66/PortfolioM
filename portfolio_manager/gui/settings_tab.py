@@ -149,9 +149,9 @@ class SettingsTab(QWidget):
             self.status_label.setStyleSheet("color: green;")
             
             # Clear status message after 3 seconds
-            from PyQt6.QtCore import QTimer
+            from PySide6.QtCore import QTimer
             QTimer.singleShot(3000, lambda: self.status_label.setText(""))
-            
+
         except Exception as e:
             self.status_label.setText(f"Error saving settings: {e}")
             self.status_label.setStyleSheet("color: red;")
@@ -180,5 +180,5 @@ class SettingsTab(QWidget):
             self.status_label.setStyleSheet("color: green;")
             
             # Clear status message after 3 seconds
-            from PyQt6.QtCore import QTimer
+            from PySide6.QtCore import QTimer
             QTimer.singleShot(3000, lambda: self.status_label.setText(""))

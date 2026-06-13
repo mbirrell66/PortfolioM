@@ -3,11 +3,12 @@ Tax Management Tab
 GUI component for tax tracking and reporting.
 """
 from PySide6.QtWidgets import (QTabWidget, QWidget, QVBoxLayout, QHBoxLayout, 
-                             QTableView, QPushButton, QFormLayout, QLabel,
-                             QDateEdit, QLineEdit, QComboBox, QTableWidget,
-                             QTableWidgetItem, QGroupBox, QCheckBox, QHeaderView)
+                              QTableView, QPushButton, QFormLayout, QLabel,
+                              QDateEdit, QLineEdit, QComboBox, QTableWidget,
+                              QTableWidgetItem, QGroupBox, QCheckBox, QHeaderView,
+                              QFrame)
 from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QColor
 from datetime import date
 import sys
 import os
@@ -34,9 +35,40 @@ class TaxManagementTab(QWidget):
     def setup_ui(self):
         """Set up the user interface."""
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         
-        # Create tab widget for different tax sections
+        # Create tab widget for different tax sections with modern styling
         tab_widget = QTabWidget()
+        tab_widget.setStyleSheet("""
+            QTabWidget::pane {
+                background-color: #0F1117;
+                border: 1px solid #222844;
+                border-radius: 8px;
+                margin-top: -1px;
+            }
+            QTabBar::tab {
+                background-color: #191D2E;
+                color: #7488B8;
+                padding: 10px 20px;
+                font-size: 13px;
+                font-weight: 500;
+                border: 1px solid #222844;
+                border-bottom: none;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                margin-right: 4px;
+            }
+            QTabBar::tab:selected {
+                background-color: #0F1117;
+                color: #5295FF;
+                font-weight: 600;
+            }
+            QTabBar::tab:hover {
+                background-color: #222844;
+                color: #5295FF;
+            }
+        """)
         
         # Tax Events Tab
         tax_events_tab = self.create_tax_events_tab()
@@ -60,22 +92,148 @@ class TaxManagementTab(QWidget):
         """Create the tax events tab."""
         tab = QWidget()
         layout = QVBoxLayout(tab)
+        layout.setSpacing(16)
         
         # Create input form
-        form_group = QGroupBox("Add New Tax Event")
-        form_layout = QFormLayout(form_group)
+        form_frame = QFrame()
+        form_frame.setStyleSheet("""
+            QFrame {
+                background-color: #191D2E;
+                border-radius: 12px;
+                border: 1px solid #222844;
+            }
+        """)
+        form_layout = QFormLayout(form_frame)
+        form_layout.setContentsMargins(16, 16, 16, 16)
+        form_layout.setSpacing(12)
+        
+        header_label = QLabel("➕ Add New Tax Event")
+        header_label.setStyleSheet("""
+            font-size: 16px;
+            font-weight: 700;
+            color: #DDE8FF;
+            padding-bottom: 12px;
+        """)
+        form_layout.addRow(header_label)
         
         self.title_input = QLineEdit()
+        self.title_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #0F1117;
+                color: #DDE8FF;
+                border: 1px solid #222844;
+                border-radius: 6px;
+                padding: 8px 12px;
+            }
+            QLineEdit:hover {
+                border-color: #5295FF;
+            }
+        """)
+        
         self.description_input = QLineEdit()
+        self.description_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #0F1117;
+                color: #DDE8FF;
+                border: 1px solid #222844;
+                border-radius: 6px;
+                padding: 8px 12px;
+            }
+            QLineEdit:hover {
+                border-color: #5295FF;
+            }
+        """)
+        
         self.amount_input = QLineEdit()
+        self.amount_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #0F1117;
+                color: #DDE8FF;
+                border: 1px solid #222844;
+                border-radius: 6px;
+                padding: 8px 12px;
+            }
+            QLineEdit:hover {
+                border-color: #5295FF;
+            }
+        """)
+        
         self.date_input = QDateEdit()
         self.date_input.setDisplayFormat("dd/MM/yyyy")
         self.date_input.setCalendarPopup(True)
         self.date_input.setDate(QDate.currentDate())
+        self.date_input.setStyleSheet("""
+            QDateEdit {
+                background-color: #0F1117;
+                color: #DDE8FF;
+                border: 1px solid #222844;
+                border-radius: 6px;
+                padding: 8px 12px;
+            }
+            QDateEdit:hover {
+                border-color: #5295FF;
+            }
+            QDateEdit::drop-down {
+                background-color: #222844;
+                border: none;
+                padding: 4px;
+            }
+        """)
         
         self.category_combo = QComboBox()
+        self.category_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #0F1117;
+                color: #DDE8FF;
+                border: 1px solid #222844;
+                border-radius: 6px;
+                padding: 8px 12px;
+            }
+            QComboBox:hover {
+                border-color: #5295FF;
+            }
+            QComboBox::drop-down {
+                background-color: #222844;
+                border: none;
+                padding: 4px;
+            }
+        """)
+        
         self.tax_rate_input = QLineEdit()
+        self.tax_rate_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #0F1117;
+                color: #DDE8FF;
+                border: 1px solid #222844;
+                border-radius: 6px;
+                padding: 8px 12px;
+            }
+            QLineEdit:hover {
+                border-color: #5295FF;
+            }
+        """)
+        
         self.deductible_checkbox = QCheckBox("Deductible")
+        self.deductible_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #DDE8FF;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+                border-radius: 4px;
+                border: 2px solid #222844;
+                background-color: #0F1117;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #5295FF;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #5295FF;
+                border-color: #5295FF;
+            }
+        """)
         
         form_layout.addRow("Title:", self.title_input)
         form_layout.addRow("Description:", self.description_input)
@@ -86,19 +244,85 @@ class TaxManagementTab(QWidget):
         form_layout.addRow("Deductible:", self.deductible_checkbox)
         
         # Add button
-        add_btn = QPushButton("Add Tax Event")
+        add_btn = QPushButton("➕ Add Tax Event")
         add_btn.clicked.connect(self.add_tax_event)
+        add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #5295FF;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #4080EE;
+            }
+            QPushButton:pressed {
+                background-color: #327AE0;
+            }
+        """)
         
         # Create table for existing events
+        table_frame = QFrame()
+        table_frame.setStyleSheet("""
+            QFrame {
+                background-color: #191D2E;
+                border-radius: 12px;
+                border: 1px solid #222844;
+            }
+        """)
+        table_layout = QVBoxLayout(table_frame)
+        table_layout.setContentsMargins(16, 16, 16, 16)
+        
+        table_header = QLabel("📋 Tax Events List")
+        table_header.setStyleSheet("""
+            font-size: 16px;
+            font-weight: 700;
+            color: #DDE8FF;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #5295FF;
+        """)
+        table_layout.addWidget(table_header)
+        
         self.tax_events_table = QTableWidget(0, 6)
         self.tax_events_table.setHorizontalHeaderLabels([
             "Title", "Category", "Amount", "Date", "Tax Rate", "Tax Amount"
         ])
         self.tax_events_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tax_events_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #0F1117;
+                color: #DDE8FF;
+                gridline-color: #222844;
+                border: none;
+                border-radius: 8px;
+            }
+            QTableWidget::item {
+                padding: 8px;
+            }
+            QTableWidget::item:selected {
+                background-color: rgba(74, 158, 255, 0.3);
+            }
+            QTableWidget::item:hover {
+                background-color: rgba(74, 158, 255, 0.15);
+            }
+            QHeaderView::section {
+                background-color: #222844;
+                color: #DDE8FF;
+                padding: 10px;
+                font-size: 13px;
+                font-weight: 600;
+                border: none;
+                border-radius: 4px;
+            }
+        """)
+        table_layout.addWidget(self.tax_events_table)
         
-        layout.addWidget(form_group)
+        layout.addWidget(form_frame)
         layout.addWidget(add_btn)
-        layout.addWidget(self.tax_events_table)
+        layout.addWidget(table_frame)
         
         return tab
     

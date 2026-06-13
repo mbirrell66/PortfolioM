@@ -2,18 +2,26 @@
 News System for Portfolio Manager with RSS Feeds
 """
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
-                              QLabel, QComboBox, QPushButton, QTableWidget,
-                              QTableWidgetItem, QGroupBox, QSplitter, QTextEdit,
-                              QFileDialog, QMessageBox, QCheckBox, QProgressBar,
-                              QStatusBar)
+                                QLabel, QComboBox, QPushButton, QTableWidget,
+                                QTableWidgetItem, QGroupBox, QSplitter, QTextEdit,
+                                QFileDialog, QMessageBox, QCheckBox, QProgressBar,
+                                QStatusBar, QFrame)
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
-from PySide6.QtGui import QFont, QIcon
-import feedparser
-import requests
+from PySide6.QtGui import QFont, QIcon, QColor
+try:
+    import feedparser
+    import requests
+    _FEEDS_AVAILABLE = True
+except ImportError:
+    feedparser = None  # type: ignore[assignment]
+    requests = None    # type: ignore[assignment]
+    _FEEDS_AVAILABLE = False
+
 from datetime import datetime
 import time
 from typing import List, Dict
 import threading
+import yfinance as yf
 
 
 class RSSFeedWorker(QThread):
@@ -31,6 +39,9 @@ class RSSFeedWorker(QThread):
         
     def run(self):
         """Fetch RSS feeds in background thread."""
+        if not _FEEDS_AVAILABLE:
+            self.error_occurred.emit("feedparser / requests not installed — run: pip install feedparser requests")
+            return
         try:
             all_entries = []
             total_feeds = len(self.feed_urls)
@@ -105,13 +116,15 @@ class NewsFeedManager:
 class NewsTab(QWidget):
     """News system tab with RSS feed support."""
     
-    def __init__(self):
+    def __init__(self, portfolio_service=None):
         """Initialize news tab."""
         super().__init__()
         self.news_manager = NewsFeedManager()
         self.current_entries = []
         self.worker = None
         self.timer = None
+        self.portfolio_service = portfolio_service
+        self.tickers_in_portfolio = []
         self.init_ui()
         self.load_default_feeds()
         self.setup_feeds_timer()
@@ -174,6 +187,17 @@ class NewsTab(QWidget):
         """Load default feeds."""
         self.status_bar.showMessage("Ready to fetch news feeds")
         
+    def get_tickers_from_portfolio(self):
+        """Get tickers from portfolio positions."""
+        if not self.portfolio_service:
+            return []
+        try:
+            positions = self.portfolio_service.get_positions()
+            return [pos.ticker for pos in positions if pos.ticker]
+        except Exception as e:
+            print(f"Error getting portfolio tickers: {e}")
+            return []
+    
     def setup_feeds_timer(self):
         """Set up auto-refresh timer."""
         try:
@@ -195,8 +219,19 @@ class NewsTab(QWidget):
             self.progress_bar.setVisible(True)
             self.progress_bar.setValue(0)
             
+            # Get tickers from portfolio
+            self.tickers_in_portfolio = self.get_tickers_from_portfolio()
+            
+            # Build list of feeds to fetch
+            feed_urls = self.news_manager.get_all_feeds()
+            
+            # Add ticker-specific feeds if portfolio service is available
+            if self.tickers_in_portfolio:
+                ticker_feeds = self.get_ticker_feeds(self.tickers_in_portfolio)
+                feed_urls.extend(ticker_feeds)
+            
             # Create and start worker thread
-            self.worker = RSSFeedWorker(self.news_manager.get_all_feeds())
+            self.worker = RSSFeedWorker(feed_urls)
             self.worker.feed_fetched.connect(self.on_feeds_fetched)
             self.worker.error_occurred.connect(self.on_error)
             self.worker.progress_updated.connect(self.on_progress_update)
@@ -208,6 +243,20 @@ class NewsTab(QWidget):
             print(f"Error in refresh_news: {e}")
             import traceback
             traceback.print_exc()
+    
+    def get_ticker_feeds(self, tickers):
+        """Get RSS feeds for specific tickers."""
+        feeds = []
+        for ticker in tickers:
+            try:
+                # Yahoo Finance RSS feed for specific ticker
+                ticker_upper = ticker.upper().replace('.', '-')
+                feed_url = f"https://finance.yahoo.com/quote/{ticker_upper}/news"
+                feeds.append(feed_url)
+            except Exception as e:
+                print(f"Error creating feed for {ticker}: {e}")
+                continue
+        return feeds
             
     def on_feeds_fetched(self, entries: List[Dict]):
         """Handle fetched feeds."""

@@ -3,10 +3,12 @@ Main window for Portfolio Manager GUI
 """
 
 from PySide6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QTableView,
-                              QSplitter, QVBoxLayout, QWidget, QPushButton,
-                              QHBoxLayout, QMenuBar, QMenu, QStatusBar,
-                              QMessageBox, QFileDialog, QLabel)
-from PySide6.QtGui import QAction
+                               QSplitter, QVBoxLayout, QWidget, QPushButton,
+                               QHBoxLayout, QMenuBar, QMenu, QStatusBar,
+                               QMessageBox, QFileDialog, QLabel)
+from PySide6.QtGui import QAction, QLinearGradient, QColor, QPalette
+from PySide6.QtCore import Qt, QSize
+from gui.icons import get_icon
 import sys
 import os
 
@@ -29,7 +31,6 @@ from gui.personal_finance_tab import PersonalFinanceTab
 from gui.tax_management_tab import TaxManagementTab
 from services.tax_service import TaxService
 
-from PySide6.QtCore import Qt
 from gui.portfolio_table import PortfolioTableModel, PortfolioTableView
 from gui.add_position_dialog import AddPositionDialog
 from database.database import init_database
@@ -52,6 +53,9 @@ class MainWindow(QMainWindow):
         self.personal_finance_service = personal_finance_service
         self.tax_service = tax_service
         
+        # Apply dark theme
+        self.apply_dark_theme()
+        
         # Create UI elements
         self.create_menu_bar()
         self.create_toolbar()
@@ -65,6 +69,49 @@ class MainWindow(QMainWindow):
     def create_menu_bar(self):
         """Create menu bar."""
         menubar = self.menuBar()
+        menubar.setStyleSheet("""
+            QMenuBar {
+                background-color: #0F1117;
+                color: #DDE8FF;
+                font-size: 14px;
+                font-weight: 600;
+                padding: 8px;
+            }
+            QMenuBar::item {
+                background-color: transparent;
+                padding: 6px 12px;
+                border-radius: 4px;
+            }
+            QMenuBar::item:selected {
+                background-color: rgba(74, 158, 255, 0.2);
+            }
+            QMenuBar::item:pressed {
+                background-color: rgba(74, 158, 255, 0.3);
+            }
+            QMenu {
+                background-color: #0F1117;
+                color: #DDE8FF;
+                font-size: 13px;
+                padding: 6px;
+                border: 1px solid #222844;
+                border-radius: 6px;
+            }
+            QMenu::item {
+                padding: 8px 16px;
+                border-radius: 4px;
+            }
+            QMenu::item:selected {
+                background-color: rgba(74, 158, 255, 0.2);
+            }
+            QMenu::item:pressed {
+                background-color: rgba(74, 158, 255, 0.3);
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #222844;
+                margin: 4px 0;
+            }
+        """)
         
         # File menu
         file_menu = menubar.addMenu("&File")
@@ -122,107 +169,177 @@ class MainWindow(QMainWindow):
         reset_action.triggered.connect(self.reset_application)
     
     def create_toolbar(self):
-        """Create toolbar."""
+        """Create toolbar with SVG-icon QActions."""
         toolbar = self.addToolBar("Main")
-        
-        # Add position button
-        add_position_btn = QPushButton("Add Position")
-        add_position_btn.clicked.connect(self.show_add_position_dialog)
-        toolbar.addWidget(add_position_btn)
-        
-        # Add dividend button
-        add_dividend_btn = QPushButton("Add Dividend")
-        add_dividend_btn.clicked.connect(self.show_dividend_dialog)
-        toolbar.addWidget(add_dividend_btn)
-        
-        # Add stock split button
-        add_stock_split_btn = QPushButton("Add Stock Split")
-        add_stock_split_btn.clicked.connect(self.show_stock_split_dialog)
-        toolbar.addWidget(add_stock_split_btn)
-        
-        # Edit position button
-        edit_position_btn = QPushButton("Edit Position")
-        edit_position_btn.clicked.connect(self.edit_position)
-        toolbar.addWidget(edit_position_btn)
-        
-        # Delete position button
-        delete_position_btn = QPushButton("Delete Position")
-        delete_position_btn.clicked.connect(self.delete_position)
-        toolbar.addWidget(delete_position_btn)
-        
-        # Refresh button
-        refresh_btn = QPushButton("Refresh Prices")
-        refresh_btn.clicked.connect(self.refresh_prices)
-        toolbar.addWidget(refresh_btn)
+        toolbar.setMovable(False)
+        toolbar.setIconSize(QSize(18, 18))
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        toolbar.setStyleSheet("""
+            QToolBar {
+                background-color: #191D2E;
+                border: none;
+                border-bottom: 1px solid #222844;
+                padding: 5px 8px;
+                spacing: 2px;
+            }
+            QToolButton {
+                background-color: transparent;
+                color: #BECCE8;
+                border: none;
+                border-radius: 6px;
+                padding: 5px 10px;
+                font-size: 12px;
+                font-weight: 500;
+            }
+            QToolButton:hover {
+                background-color: rgba(74, 158, 255, 0.15);
+                color: #5295FF;
+            }
+            QToolButton:pressed {
+                background-color: rgba(74, 158, 255, 0.28);
+            }
+            QToolBar::separator {
+                background-color: #222844;
+                width: 1px;
+                margin: 4px 6px;
+            }
+        """)
+
+        add_action = QAction(get_icon("ACT_ADD"), "Add Position", self)
+        add_action.setShortcut("Ctrl+N")
+        add_action.setToolTip("Add new position  (Ctrl+N)")
+        add_action.triggered.connect(self.show_add_position_dialog)
+        toolbar.addAction(add_action)
+
+        div_action = QAction(get_icon("ACT_DIVIDEND"), "Add Dividend", self)
+        div_action.setShortcut("Ctrl+D")
+        div_action.setToolTip("Record dividend payment  (Ctrl+D)")
+        div_action.triggered.connect(self.show_dividend_dialog)
+        toolbar.addAction(div_action)
+
+        split_action = QAction(get_icon("ACT_SPLIT"), "Add Split", self)
+        split_action.setToolTip("Record stock split")
+        split_action.triggered.connect(self.show_stock_split_dialog)
+        toolbar.addAction(split_action)
+
+        toolbar.addSeparator()
+
+        edit_action = QAction(get_icon("ACT_EDIT"), "Edit", self)
+        edit_action.setShortcut("Ctrl+E")
+        edit_action.setToolTip("Edit selected position  (Ctrl+E)")
+        edit_action.triggered.connect(self.edit_position)
+        toolbar.addAction(edit_action)
+
+        delete_action = QAction(get_icon("ACT_DELETE"), "Delete", self)
+        delete_action.setShortcut("Del")
+        delete_action.setToolTip("Delete selected position  (Del)")
+        delete_action.triggered.connect(self.delete_position)
+        toolbar.addAction(delete_action)
+
+        toolbar.addSeparator()
+
+        refresh_action = QAction(get_icon("ACT_REFRESH"), "Refresh", self)
+        refresh_action.setToolTip("Refresh all prices")
+        refresh_action.triggered.connect(self.refresh_prices)
+        toolbar.addAction(refresh_action)
     
     def create_status_bar(self):
         """Create status bar."""
-        self.statusBar().showMessage("Ready")
+        status_bar = self.statusBar()
+        status_bar.setStyleSheet("""
+            QStatusBar {
+                background-color: #0F1117;
+                color: #7488B8;
+                font-size: 13px;
+                padding: 4px 8px;
+            }
+            QStatusBar::item {
+                border-radius: 3px;
+                padding: 2px 6px;
+            }
+        """)
+        status_bar.showMessage("Ready")
     
     def create_central_widget(self):
         """Create central widget with tabs."""
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        
-        # Main layout
-        layout = QVBoxLayout(central_widget)
-        
-        # Create tab widget
+
+        main_layout = QVBoxLayout(central_widget)
+
+        # Tab widget
         tab_widget = QTabWidget()
-        
-        # Create portfolio table tab
+        tab_widget.setIconSize(QSize(16, 16))
+        tab_widget.setStyleSheet("""
+            QTabWidget::pane {
+                background-color: #0F1117;
+                border: 1px solid #222844;
+                border-radius: 8px;
+                margin-top: -1px;
+            }
+            QTabBar::tab {
+                background-color: #191D2E;
+                color: #7488B8;
+                padding: 8px 14px;
+                font-size: 12px;
+                font-weight: 500;
+                border: 1px solid #222844;
+                border-bottom: none;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                margin-right: 3px;
+            }
+            QTabBar::tab:selected {
+                background-color: #0F1117;
+                color: #DDE8FF;
+                font-weight: 600;
+                border-bottom-color: #0F1117;
+            }
+            QTabBar::tab:hover {
+                background-color: #222844;
+                color: #5295FF;
+            }
+            QTabBar::tab:last {
+                margin-right: 0;
+            }
+        """)
+
         portfolio_tab = self.create_portfolio_tab()
-        tab_widget.addTab(portfolio_tab, "Portfolio")
-        
-        # Create dashboard tab
+        tab_widget.addTab(portfolio_tab, get_icon("PORTFOLIO"), "Portfolio")
+
         dashboard_tab = DashboardWidget()
-        tab_widget.addTab(dashboard_tab, "Dashboard")
-        
-        # Create performance tab
+        tab_widget.addTab(dashboard_tab, get_icon("DASHBOARD"), "Dashboard")
+
         performance_tab = PerformanceTab()
-        tab_widget.addTab(performance_tab, "Performance")
-        
-        # Create benchmark comparison tab
+        tab_widget.addTab(performance_tab, get_icon("PERFORMANCE"), "Performance")
+
         try:
             from services.market_data import MarketDataService
-            benchmark_tab = BenchmarkComparisonTab(
-                self.portfolio_service, 
-                MarketDataService()
-            )
-            tab_widget.addTab(benchmark_tab, "Benchmark Comparison")
+            benchmark_tab = BenchmarkComparisonTab(self.portfolio_service, MarketDataService())
+            tab_widget.addTab(benchmark_tab, get_icon("BENCHMARK"), "Benchmark")
         except Exception as e:
             print(f"Error creating benchmark tab: {e}")
-            import traceback
-            traceback.print_exc()
-            # Create a simple placeholder tab if the benchmark tab fails
             placeholder_tab = QWidget()
-            layout = QVBoxLayout(placeholder_tab)
-            layout.addWidget(QLabel("Benchmark Comparison tab failed to initialize"))
-            tab_widget.addTab(placeholder_tab, "Benchmark Comparison")
-        
-        # Create report tab
+            placeholder_layout = QVBoxLayout(placeholder_tab)
+            placeholder_layout.addWidget(QLabel("Benchmark tab failed to initialize"))
+            tab_widget.addTab(placeholder_tab, get_icon("BENCHMARK"), "Benchmark")
+
         report_tab = ReportTab(self.portfolio_service)
-        tab_widget.addTab(report_tab, "Reports")
-        
-        # Create news tab
-        news_tab = NewsTab()
-        tab_widget.addTab(news_tab, "News")
-        
-        # Create personal finance tab
+        tab_widget.addTab(report_tab, get_icon("REPORTS"), "Reports")
+
+        news_tab = NewsTab(self.portfolio_service)
+        tab_widget.addTab(news_tab, get_icon("NEWS"), "News")
+
         self.personal_finance_tab = PersonalFinanceTab(self.personal_finance_service)
-        tab_widget.addTab(self.personal_finance_tab, "Personal Finance")
-        
-        # Create tax management tab
+        tab_widget.addTab(self.personal_finance_tab, get_icon("FINANCE"), "Personal Finance")
+
         self.tax_management_tab = TaxManagementTab(self.tax_service)
-        tab_widget.addTab(self.tax_management_tab, "Tax Management")
-        
-        
-        
-        # Create settings tab
+        tab_widget.addTab(self.tax_management_tab, get_icon("TAX"), "Tax Management")
+
         settings_tab = SettingsTab()
-        tab_widget.addTab(settings_tab, "Settings")
-        
-        layout.addWidget(tab_widget)
+        tab_widget.addTab(settings_tab, get_icon("SETTINGS"), "Settings")
+
+        main_layout.addWidget(tab_widget)
     
     def create_portfolio_tab(self):
         """Create portfolio table tab."""
@@ -273,6 +390,14 @@ class MainWindow(QMainWindow):
         layout.addWidget(QLabel("Settings would go here"))
         return tab
     
+    def apply_dark_theme(self):
+        """Apply dark theme to the entire application."""
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #0F1117;
+            }
+        """)
+
     def create_connections(self):
         """Create signal connections."""
         pass

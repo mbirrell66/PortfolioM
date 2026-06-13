@@ -187,10 +187,13 @@ class DividendEntryDialog(QDialog):
             )
             
             # Save to database
-            db = self.portfolio_service.get_db()
-            db.add(dividend)
-            db.commit()
-            db.close()
+            from database.database import SessionLocal
+            db = SessionLocal()
+            try:
+                db.add(dividend)
+                db.commit()
+            finally:
+                db.close()
             
             QMessageBox.information(self, "Success", f"Dividend payment for {ticker} saved successfully!")
             self.accept()

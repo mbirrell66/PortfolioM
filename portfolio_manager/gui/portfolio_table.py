@@ -4,6 +4,7 @@ Portfolio table model and view for Portfolio Manager
 
 from PySide6.QtWidgets import QTableView, QHeaderView
 from PySide6.QtCore import QAbstractTableModel, Qt, QModelIndex
+from PySide6.QtGui import QColor, QFont
 from database.models import Position
 from database.database import SessionLocal
 from services.portfolio_service import PortfolioService
@@ -110,7 +111,19 @@ class PortfolioTableModel(QAbstractTableModel):
                     return "N/A"
             elif index.column() == 8:  # Purchase Date
                 return position.purchase_date.strftime("%Y-%m-%d")
-        
+
+        elif role == Qt.ForegroundRole:
+            if index.column() in (6, 7):  # Gain/Loss and Gain %
+                current_prices = self._get_current_prices()
+                current_price = current_prices.get(position.ticker, 0)
+                if current_price > 0:
+                    gain_loss = (current_price - position.purchase_price) * position.shares
+                    return QColor("#38D88A") if gain_loss >= 0 else QColor("#FF5068")
+
+        elif role == Qt.TextAlignmentRole:
+            if index.column() in (1, 2, 3, 4, 5, 6, 7):
+                return int(Qt.AlignRight | Qt.AlignVCenter)
+
         return None
     
     def headerData(self, section, orientation, role=Qt.DisplayRole):
@@ -138,7 +151,43 @@ class PortfolioTableView(QTableView):
         self.horizontalHeader().setStretchLastSection(True)
         self.verticalHeader().setVisible(False)
         self.setSelectionBehavior(QTableView.SelectRows)
-        
+        self.setAlternatingRowColors(True)
+        self.setShowGrid(False)
+        self.setStyleSheet("""
+            QTableView {
+                background-color: #0F1117;
+                alternate-background-color: #161928;
+                color: #DDE8FF;
+                gridline-color: transparent;
+                border: none;
+                border-radius: 8px;
+                selection-background-color: rgba(74, 158, 255, 0.25);
+                selection-color: #DDE8FF;
+                outline: none;
+            }
+            QTableView::item {
+                padding: 6px 10px;
+                border: none;
+            }
+            QTableView::item:hover {
+                background-color: rgba(74, 158, 255, 0.12);
+            }
+            QHeaderView::section {
+                background-color: #191D2E;
+                color: #7488B8;
+                padding: 8px 10px;
+                font-size: 12px;
+                font-weight: 600;
+                border: none;
+                border-right: 1px solid #222844;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            QHeaderView::section:last {
+                border-right: none;
+            }
+        """)
+
         # Load initial data
         self.load_data()
     
