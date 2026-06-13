@@ -93,6 +93,14 @@ _SVGS: dict[str, str] = {
         f'</svg>'
     ),
 
+    "WATCHLIST": (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"'
+        f' stroke="{_C}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
+        f'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>'
+        f'<circle cx="12" cy="12" r="3"/>'
+        f'</svg>'
+    ),
+
     # ── Toolbar / action icons ────────────────────────────────────────────────
     "ACT_ADD": (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"'

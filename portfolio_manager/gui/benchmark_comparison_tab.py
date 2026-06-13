@@ -159,7 +159,7 @@ class BenchmarkComparisonTab(QWidget):
         self.compare_btn.setStyleSheet("""
             QPushButton {
                 background-color: #5295FF;
-                color: white;
+                color: #0F1117;
                 border: none;
                 border-radius: 6px;
                 padding: 10px 20px;
@@ -431,4 +431,4 @@ class BenchmarkComparisonTab(QWidget):
             self.chart_widget.setTitle(f"Portfolio vs Benchmark - CAGR Comparison")
             
         except Exception as e:
-            l
+                       print(f"Error updating chart: {e}")

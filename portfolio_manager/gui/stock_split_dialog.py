@@ -3,7 +3,7 @@ Stock Split Dialog for Portfolio Manager
 """
 
 from datetime import date
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QDateEdit, QSpinBox, QPushButton, QMessageBox, QComboBox)
 from PySide6.QtCore import Qt, QDate
 from services.portfolio_service import PortfolioService
@@ -15,8 +15,34 @@ class StockSplitDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Add Stock Split")
         self.setModal(True)
-        self.setFixedSize(400, 280)
-        
+        self.setFixedSize(400, 300)
+        self.setStyleSheet("""
+            QDialog { background-color: #0F1117; }
+            QLabel { color: #7488B8; font-size: 13px; }
+            QComboBox, QDateEdit, QSpinBox {
+                background-color: #191D2E; color: #DDE8FF;
+                border: 1px solid #222844; border-radius: 6px;
+                padding: 6px 10px; font-size: 13px;
+            }
+            QComboBox:focus, QDateEdit:focus, QSpinBox:focus { border-color: #5295FF; }
+            QComboBox::drop-down, QDateEdit::drop-down,
+            QSpinBox::up-button, QSpinBox::down-button {
+                background-color: #222844; border: none;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #191D2E; color: #DDE8FF;
+                border: 1px solid #222844;
+                selection-background-color: rgba(74, 158, 255, 0.25);
+            }
+            QPushButton {
+                background-color: #5295FF; color: #0F1117; border: none;
+                border-radius: 6px; padding: 8px 20px; font-size: 13px;
+                font-weight: 600; min-width: 80px;
+            }
+            QPushButton:hover { background-color: #4080EE; }
+            QPushButton:pressed { background-color: #327AE0; }
+        """)
+
         self.ticker = ticker
         self.portfolio_service = PortfolioService()
         
@@ -26,8 +52,9 @@ class StockSplitDialog(QDialog):
     def init_ui(self):
         """Initialize the dialog UI."""
         layout = QVBoxLayout()
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
         
-        # Ticker selection
         ticker_layout = QHBoxLayout()
         ticker_layout.addWidget(QLabel("Ticker:"))
         self.ticker_combo = QComboBox()
@@ -35,7 +62,6 @@ class StockSplitDialog(QDialog):
         ticker_layout.addWidget(self.ticker_combo)
         layout.addLayout(ticker_layout)
         
-        # Split date
         date_layout = QHBoxLayout()
         date_layout.addWidget(QLabel("Split Date:"))
         self.date_edit = QDateEdit()
@@ -44,7 +70,6 @@ class StockSplitDialog(QDialog):
         date_layout.addWidget(self.date_edit)
         layout.addLayout(date_layout)
         
-        # Old ratio
         old_layout = QHBoxLayout()
         old_layout.addWidget(QLabel("Old Ratio (e.g., 1):"))
         self.old_ratio_spin = QSpinBox()
@@ -53,7 +78,6 @@ class StockSplitDialog(QDialog):
         old_layout.addWidget(self.old_ratio_spin)
         layout.addLayout(old_layout)
         
-        # New ratio
         new_layout = QHBoxLayout()
         new_layout.addWidget(QLabel("New Ratio (e.g., 4):"))
         self.new_ratio_spin = QSpinBox()
@@ -62,13 +86,11 @@ class StockSplitDialog(QDialog):
         new_layout.addWidget(self.new_ratio_spin)
         layout.addLayout(new_layout)
         
-        # Buttons
         button_layout = QHBoxLayout()
         self.ok_button = QPushButton("Add Split")
         self.ok_button.clicked.connect(self.accept)
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.clicked.connect(self.reject)
-        
         button_layout.addWidget(self.ok_button)
         button_layout.addWidget(self.cancel_button)
         layout.addLayout(button_layout)
@@ -78,12 +100,9 @@ class StockSplitDialog(QDialog):
     def load_ticker_data(self):
         """Load available ticker symbols."""
         try:
-            # Get all positions to get ticker symbols
             positions = self.portfolio_service.get_positions()
             tickers = list(set([pos.ticker for pos in positions]))
             self.ticker_combo.addItems(tickers)
-            
-            # Set default ticker if provided
             if self.ticker and self.ticker in tickers:
                 self.ticker_combo.setCurrentText(self.ticker)
         except Exception as e:

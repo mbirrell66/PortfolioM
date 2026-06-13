@@ -276,6 +276,63 @@ class ReportExportService:
             return False
 
 
+
+_REPORT_SS = """
+    QWidget { background-color: #0F1117; }
+    QGroupBox {
+        color: #7488B8; font-size: 12px; font-weight: 600;
+        border: 1px solid #222844; border-radius: 6px;
+        margin-top: 8px; padding-top: 8px;
+    }
+    QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
+    QLabel { color: #7488B8; font-size: 13px; }
+    QComboBox, QDateEdit, QDoubleSpinBox, QSpinBox, QLineEdit {
+        background-color: #191D2E; color: #DDE8FF;
+        border: 1px solid #222844; border-radius: 6px;
+        padding: 6px 10px; font-size: 13px;
+    }
+    QComboBox:focus, QDateEdit:focus, QLineEdit:focus { border-color: #5295FF; }
+    QComboBox::drop-down, QDateEdit::drop-down {
+        background-color: #222844; border: none;
+    }
+    QComboBox QAbstractItemView {
+        background-color: #191D2E; color: #DDE8FF; border: 1px solid #222844;
+        selection-background-color: rgba(74, 158, 255, 0.25);
+    }
+    QCheckBox { color: #DDE8FF; font-size: 13px; }
+    QCheckBox::indicator {
+        width: 16px; height: 16px;
+        border: 1px solid #222844; border-radius: 3px; background-color: #191D2E;
+    }
+    QCheckBox::indicator:checked { background-color: #5295FF; border-color: #5295FF; }
+    QPushButton {
+        background-color: #5295FF; color: #0F1117; border: none;
+        border-radius: 6px; padding: 8px 20px; font-size: 13px;
+        font-weight: 600; min-width: 80px;
+    }
+    QPushButton:hover { background-color: #4080EE; }
+    QPushButton:pressed { background-color: #327AE0; }
+    QTextEdit {
+        background-color: #191D2E; color: #DDE8FF;
+        border: 1px solid #222844; border-radius: 6px;
+        font-family: 'Courier New', monospace; font-size: 12px;
+    }
+    QSplitter::handle { background-color: #222844; width: 2px; height: 2px; }
+    QTableWidget, QTableView {
+        background-color: #0F1117; alternate-background-color: #161928;
+        color: #DDE8FF; gridline-color: transparent; border: none;
+        selection-background-color: rgba(74, 158, 255, 0.25);
+        selection-color: #DDE8FF; outline: none;
+    }
+    QTableWidget::item, QTableView::item { padding: 6px 10px; border: none; }
+    QHeaderView::section {
+        background-color: #191D2E; color: #7488B8;
+        padding: 8px 10px; font-size: 11px; font-weight: 600;
+        border: none; border-right: 1px solid #222844;
+    }
+    QHeaderView::section:last { border-right: none; }
+"""
+
 class ReportTab(QWidget):
     """Custom Report System with export capabilities."""
     
@@ -290,6 +347,7 @@ class ReportTab(QWidget):
     
     def init_ui(self):
         """Initialize user interface."""
+        self.setStyleSheet(_REPORT_SS)
         layout = QVBoxLayout(self)
         
         # Create a splitter for main content

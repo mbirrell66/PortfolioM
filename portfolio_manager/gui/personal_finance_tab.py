@@ -15,6 +15,86 @@ from PySide6.QtGui import QFont
 from services.personal_finance_service import PersonalFinanceService
 from database.personal_finance_models import IncomeCategory, ExpenseCategory
 
+
+_TAB_SS = """
+    QWidget { background-color: #0F1117; }
+    QTabWidget::pane {
+        background-color: #0F1117;
+        border: 1px solid #222844;
+        border-radius: 8px;
+        margin-top: -1px;
+    }
+    QTabBar::tab {
+        background-color: #191D2E; color: #7488B8;
+        padding: 10px 20px; font-size: 13px; font-weight: 500;
+        border: 1px solid #222844; border-bottom: none;
+        border-top-left-radius: 6px; border-top-right-radius: 6px;
+        margin-right: 4px;
+    }
+    QTabBar::tab:selected { background-color: #0F1117; color: #5295FF; font-weight: 600; }
+    QTabBar::tab:hover { color: #5295FF; }
+    QLabel { color: #7488B8; font-size: 13px; }
+    QGroupBox {
+        color: #7488B8; font-size: 12px; font-weight: 600;
+        border: 1px solid #222844; border-radius: 6px;
+        margin-top: 8px; padding-top: 8px;
+    }
+    QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
+    QLineEdit, QDateEdit, QDoubleSpinBox, QSpinBox, QComboBox {
+        background-color: #191D2E; color: #DDE8FF;
+        border: 1px solid #222844; border-radius: 6px;
+        padding: 6px 10px; font-size: 13px;
+    }
+    QLineEdit:focus, QDateEdit:focus, QComboBox:focus,
+    QDoubleSpinBox:focus, QSpinBox:focus { border-color: #5295FF; }
+    QComboBox::drop-down, QDateEdit::drop-down,
+    QDoubleSpinBox::up-button, QDoubleSpinBox::down-button,
+    QSpinBox::up-button, QSpinBox::down-button { background-color: #222844; border: none; }
+    QComboBox QAbstractItemView {
+        background-color: #191D2E; color: #DDE8FF; border: 1px solid #222844;
+        selection-background-color: rgba(74, 158, 255, 0.25);
+    }
+    QCheckBox { color: #DDE8FF; font-size: 13px; }
+    QCheckBox::indicator {
+        width: 16px; height: 16px;
+        border: 1px solid #222844; border-radius: 3px; background-color: #191D2E;
+    }
+    QCheckBox::indicator:checked { background-color: #5295FF; border-color: #5295FF; }
+    QPushButton {
+        background-color: #5295FF; color: #0F1117; border: none;
+        border-radius: 6px; padding: 8px 20px; font-size: 13px;
+        font-weight: 600; min-width: 80px;
+    }
+    QPushButton:hover { background-color: #4080EE; }
+    QPushButton:pressed { background-color: #327AE0; }
+    QTableWidget, QTableView {
+        background-color: #0F1117; alternate-background-color: #161928;
+        color: #DDE8FF; gridline-color: transparent; border: none;
+        selection-background-color: rgba(74, 158, 255, 0.25);
+        selection-color: #DDE8FF; outline: none;
+    }
+    QTableWidget::item, QTableView::item { padding: 6px 10px; border: none; }
+    QTableWidget::item:hover, QTableView::item:hover {
+        background-color: rgba(74, 158, 255, 0.12);
+    }
+    QHeaderView::section {
+        background-color: #191D2E; color: #7488B8;
+        padding: 8px 10px; font-size: 11px; font-weight: 600;
+        border: none; border-right: 1px solid #222844;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    QHeaderView::section:last { border-right: none; }
+    QTextEdit {
+        background-color: #191D2E; color: #DDE8FF;
+        border: 1px solid #222844; border-radius: 6px; font-size: 13px;
+    }
+    QSplitter::handle { background-color: #222844; }
+    QProgressBar {
+        background-color: #191D2E; border: 1px solid #222844; border-radius: 4px;
+        color: #DDE8FF; text-align: center;
+    }
+    QProgressBar::chunk { background-color: #5295FF; border-radius: 3px; }
+"""
 class PersonalFinanceTab(QWidget):
     """Main tab for personal finance tracking."""
     
@@ -27,6 +107,7 @@ class PersonalFinanceTab(QWidget):
     
     def setup_ui(self):
         """Set up the user interface."""
+        self.setStyleSheet(_TAB_SS)
         layout = QVBoxLayout(self)
         
         # Create tab widget for different sections
@@ -70,6 +151,7 @@ class IncomeTab(QWidget):
     
     def setup_ui(self):
         """Set up the user interface."""
+        self.setStyleSheet(_TAB_SS)
         layout = QVBoxLayout(self)
         
         # Input form
@@ -117,6 +199,9 @@ class IncomeTab(QWidget):
         self.income_table.setHorizontalHeaderLabels(["Date", "Category", "Amount", "Description", "Recurring"])
         self.income_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.income_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.income_table.setAlternatingRowColors(True)
+        self.income_table.setShowGrid(False)
+        self.income_table.verticalHeader().setVisible(False)
         layout.addWidget(self.income_table)
         
         # Load categories
@@ -182,6 +267,7 @@ class ExpenseTab(QWidget):
     
     def setup_ui(self):
         """Set up the user interface."""
+        self.setStyleSheet(_TAB_SS)
         layout = QVBoxLayout(self)
         
         # Input form
@@ -229,6 +315,9 @@ class ExpenseTab(QWidget):
         self.expense_table.setHorizontalHeaderLabels(["Date", "Category", "Amount", "Description", "Recurring"])
         self.expense_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.expense_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.expense_table.setAlternatingRowColors(True)
+        self.expense_table.setShowGrid(False)
+        self.expense_table.verticalHeader().setVisible(False)
         layout.addWidget(self.expense_table)
         
         # Load categories
@@ -294,6 +383,7 @@ class BudgetTab(QWidget):
     
     def setup_ui(self):
         """Set up the user interface."""
+        self.setStyleSheet(_TAB_SS)
         layout = QVBoxLayout(self)
         
         # Input form
@@ -341,6 +431,9 @@ class BudgetTab(QWidget):
         self.budget_table.setHorizontalHeaderLabels(["Category", "Month", "Budget Limit", "Status"])
         self.budget_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.budget_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.budget_table.setAlternatingRowColors(True)
+        self.budget_table.setShowGrid(False)
+        self.budget_table.verticalHeader().setVisible(False)
         layout.addWidget(self.budget_table)
         
         # Load categories
@@ -410,6 +503,7 @@ class GoalsTab(QWidget):
     
     def setup_ui(self):
         """Set up the user interface."""
+        self.setStyleSheet(_TAB_SS)
         layout = QVBoxLayout(self)
         
         # Input form
@@ -453,6 +547,9 @@ class GoalsTab(QWidget):
         self.goals_table.setHorizontalHeaderLabels(["Title", "Amount", "Deadline", "Progress", "Status"])
         self.goals_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.goals_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.goals_table.setAlternatingRowColors(True)
+        self.goals_table.setShowGrid(False)
+        self.goals_table.verticalHeader().setVisible(False)
         layout.addWidget(self.goals_table)
     
     def load_goals_data(self):
@@ -510,6 +607,7 @@ class SummaryTab(QWidget):
     
     def setup_ui(self):
         """Set up the user interface."""
+        self.setStyleSheet(_TAB_SS)
         layout = QVBoxLayout(self)
         
         # Summary information

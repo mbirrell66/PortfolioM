@@ -12,7 +12,9 @@ project_root = str(Path(__file__).parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QSplashScreen
+from PySide6.QtGui import QPixmap, QIcon
+from PySide6.QtCore import Qt, QTimer
 from gui.main_window import MainWindow
 from services.portfolio_service import PortfolioService
 from services.personal_finance_service import PersonalFinanceService
@@ -20,25 +22,26 @@ from services.tax_service import TaxService
 from database.database import init_database
 
 # Global stylesheet applied app-wide.
-# Sets default text colour on all widgets so unstyled QLabel / QGroupBox /
-# form-row labels don't fall back to the OS black.  Widgets with their own
-# explicit colour rules override this automatically via QSS specificity.
 _APP_STYLE = (
-    # Default text colour for every widget
     "QWidget { color: #DDE8FF; }"
-    # Scrollbars
     "QScrollBar:vertical { background: #0B0D16; width: 8px; margin: 0; }"
-    "QScrollBar::handle:vertical { background: #2E3662; min-height: 24px; border-radius: 4px; }"
+    "QScrollBar::handle:vertical { background: #4B6599; min-height: 24px; border-radius: 4px; }"
     "QScrollBar::handle:vertical:hover { background: #5295FF; }"
     "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
     "QScrollBar:horizontal { background: #0B0D16; height: 8px; margin: 0; }"
-    "QScrollBar::handle:horizontal { background: #2E3662; min-width: 24px; border-radius: 4px; }"
+    "QScrollBar::handle:horizontal { background: #4B6599; min-width: 24px; border-radius: 4px; }"
     "QScrollBar::handle:horizontal:hover { background: #5295FF; }"
     "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }"
-    # Tooltips
     "QToolTip { background-color: #191D2E; color: #DDE8FF;"
-    " border: 1px solid #2E3662; border-radius: 4px; padding: 4px 8px; font-size: 12px; }"
+    " border: 1px solid #4B6599; border-radius: 4px; padding: 4px 8px; font-size: 12px; }"
 )
+
+
+def _icon_path() -> Path:
+    """Return the absolute path to PortM.png -- works frozen and non-frozen."""
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).parent / "PortM.png"
+    return Path(__file__).parent / "PortM.png"
 
 
 def main():
@@ -49,6 +52,23 @@ def main():
     app.setApplicationName("Portfolio Manager")
     app.setApplicationVersion("1.0.0")
 
+    png = _icon_path()
+
+    # -- Application icon (taskbar + window chrome) ------------------------
+    if png.exists():
+        app.setWindowIcon(QIcon(str(png)))
+
+    # -- Splash screen (3 seconds) -----------------------------------------
+    splash = None
+    if png.exists():
+        pixmap = QPixmap(str(png))
+        if not pixmap.isNull():
+            pixmap = pixmap.scaled(480, 480, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            splash = QSplashScreen(pixmap, Qt.WindowStaysOnTopHint)
+            splash.show()
+            app.processEvents()
+
+    # -- Initialise backend while splash is visible ------------------------
     init_database()
 
     portfolio_service = PortfolioService()
@@ -56,7 +76,13 @@ def main():
     tax_service = TaxService()
 
     main_window = MainWindow(portfolio_service, personal_finance_service, tax_service)
-    main_window.show()
+
+    def _launch():
+        if splash:
+            splash.finish(main_window)
+        main_window.showMaximized()
+
+    QTimer.singleShot(3000, _launch)
 
     sys.exit(app.exec())
 

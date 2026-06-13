@@ -249,7 +249,7 @@ class TaxManagementTab(QWidget):
         add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #5295FF;
-                color: white;
+                color: #0F1117;
                 border: none;
                 border-radius: 6px;
                 padding: 10px 20px;
@@ -295,7 +295,7 @@ class TaxManagementTab(QWidget):
             QTableWidget {
                 background-color: #0F1117;
                 color: #DDE8FF;
-                gridline-color: #222844;
+                gridline-color: transparent;
                 border: none;
                 border-radius: 8px;
             }
@@ -309,14 +309,17 @@ class TaxManagementTab(QWidget):
                 background-color: rgba(74, 158, 255, 0.15);
             }
             QHeaderView::section {
-                background-color: #222844;
-                color: #DDE8FF;
-                padding: 10px;
-                font-size: 13px;
+                background-color: #191D2E;
+                color: #7488B8;
+                padding: 8px 10px;
+                font-size: 11px;
                 font-weight: 600;
                 border: none;
-                border-radius: 4px;
+                border-right: 1px solid #222844;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
             }
+            QHeaderView::section:last { border-right: none; }
         """)
         table_layout.addWidget(self.tax_events_table)
         

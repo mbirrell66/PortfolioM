@@ -18,6 +18,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from gui.edit_position_dialog import EditPositionDialog
+from gui.watchlist_tab import WatchlistTab
 from gui.dashboard_widget import DashboardWidget
 from gui.performance_tab import PerformanceTab
 from gui.settings_tab import SettingsTab
@@ -307,6 +308,9 @@ class MainWindow(QMainWindow):
         portfolio_tab = self.create_portfolio_tab()
         tab_widget.addTab(portfolio_tab, get_icon("PORTFOLIO"), "Portfolio")
 
+        watchlist_tab = WatchlistTab()
+        tab_widget.addTab(watchlist_tab, get_icon("WATCHLIST"), "Watchlist")
+
         dashboard_tab = DashboardWidget()
         tab_widget.addTab(dashboard_tab, get_icon("DASHBOARD"), "Dashboard")
 
@@ -515,7 +519,7 @@ class MainWindow(QMainWindow):
             # For now, just show a message - will implement reset logic
             # in later milestone
             QMessageBox.information(self, "Reset Application", 
-                                  "Reset functionality will be implemented in later milestone.")
+                                  "Reset functionality will be implemented in a later milestone.")
 
 if __name__ == "__main__":
     app = QApplication([])

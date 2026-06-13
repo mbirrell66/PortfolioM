@@ -20,13 +20,60 @@ class DividendEntryDialog(QDialog):
         self.portfolio_service = PortfolioService()
         self.setWindowTitle("Add Dividend Payment")
         self.setModal(True)
-        self.resize(500, 400)
+        self.resize(500, 420)
         self.init_ui()
         self.load_positions()
     
     def init_ui(self):
         """Initialize user interface."""
+        self.setStyleSheet("""
+            QDialog { background-color: #0F1117; }
+            QLabel { color: #7488B8; font-size: 13px; }
+            QGroupBox {
+                color: #7488B8; font-size: 12px; font-weight: 600;
+                border: 1px solid #222844; border-radius: 6px;
+                margin-top: 8px; padding-top: 8px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin; left: 10px; padding: 0 4px;
+            }
+            QComboBox, QDateEdit, QDoubleSpinBox {
+                background-color: #191D2E; color: #DDE8FF;
+                border: 1px solid #222844; border-radius: 6px;
+                padding: 6px 10px; font-size: 13px;
+            }
+            QComboBox:focus, QDateEdit:focus, QDoubleSpinBox:focus { border-color: #5295FF; }
+            QComboBox::drop-down, QDateEdit::drop-down,
+            QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+                background-color: #222844; border: none;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #191D2E; color: #DDE8FF;
+                border: 1px solid #222844;
+                selection-background-color: rgba(74, 158, 255, 0.25);
+            }
+            QTableWidget {
+                background-color: #0F1117; alternate-background-color: #161928;
+                color: #DDE8FF; gridline-color: transparent;
+                border: 1px solid #222844; border-radius: 4px;
+            }
+            QHeaderView::section {
+                background-color: #191D2E; color: #7488B8;
+                padding: 6px 8px; font-size: 11px; font-weight: 600;
+                border: none; border-right: 1px solid #222844;
+            }
+            QPushButton {
+                background-color: #5295FF; color: #0F1117; border: none;
+                border-radius: 6px; padding: 8px 20px; font-size: 13px;
+                font-weight: 600; min-width: 80px;
+            }
+            QPushButton:hover { background-color: #4080EE; }
+            QPushButton:pressed { background-color: #327AE0; }
+        """)
+
         layout = QVBoxLayout(self)
+        layout.setSpacing(15)
+        layout.setContentsMargins(15, 15, 15, 15)
         
         # Dividend entry form
         form_group = QGroupBox("Dividend Details")
@@ -82,10 +129,6 @@ class DividendEntryDialog(QDialog):
         # Connect signals
         self.amount_spin.valueChanged.connect(self.update_total_amount)
         self.ticker_combo.currentTextChanged.connect(self.update_position_details)
-        
-        # Set layout spacing
-        layout.setSpacing(15)
-        layout.setContentsMargins(15, 15, 15, 15)
     
     def load_positions(self):
         """Load available positions for selection."""
@@ -104,21 +147,16 @@ class DividendEntryDialog(QDialog):
             if not ticker:
                 return
                 
-            # Find position by ticker
             positions = self.portfolio_service.get_positions()
             position = next((p for p in positions if p.ticker == ticker), None)
             
             if position:
-                # Clear existing rows
                 self.position_table.setRowCount(0)
-                
-                # Add position details
                 self.position_table.setRowCount(1)
                 self.position_table.setItem(0, 0, QTableWidgetItem(ticker))
                 self.position_table.setItem(0, 1, QTableWidgetItem(str(position.shares)))
                 self.position_table.setItem(0, 2, QTableWidgetItem(f"${position.purchase_price:.2f}"))
                 
-                # Calculate current value
                 current_price = self.portfolio_service.get_current_price(ticker)
                 if current_price:
                     current_value = position.shares * current_price
@@ -138,7 +176,6 @@ class DividendEntryDialog(QDialog):
             if not ticker:
                 return
                 
-            # Find position by ticker
             positions = self.portfolio_service.get_positions()
             position = next((p for p in positions if p.ticker == ticker), None)
             
@@ -166,7 +203,6 @@ class DividendEntryDialog(QDialog):
                 QMessageBox.warning(self, "Invalid Input", "Amount per share must be greater than zero.")
                 return
             
-            # Find position by ticker
             positions = self.portfolio_service.get_positions()
             position = next((p for p in positions if p.ticker == ticker), None)
             
@@ -174,10 +210,8 @@ class DividendEntryDialog(QDialog):
                 QMessageBox.warning(self, "Invalid Input", "Selected ticker not found in positions.")
                 return
             
-            # Calculate total amount
             total_amount = amount_per_share * position.shares
             
-            # Create dividend record
             dividend = Dividend(
                 position_id=position.id,
                 ticker=ticker,
@@ -186,7 +220,6 @@ class DividendEntryDialog(QDialog):
                 total_amount=total_amount
             )
             
-            # Save to database
             from database.database import SessionLocal
             db = SessionLocal()
             try:
