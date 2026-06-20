@@ -11,10 +11,68 @@ from PySide6.QtWidgets import (
     QCheckBox, QMessageBox, QAbstractItemView
 )
 from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QTextCharFormat, QColor
 from services.personal_finance_service import PersonalFinanceService
 from services.portfolio_service import PortfolioService
 from database.personal_finance_models import IncomeCategory, ExpenseCategory
+
+
+_CALENDAR_POPUP_SS = """
+    QWidget { background-color: #0F1117; color: #DDE8FF; }
+    QWidget#qt_calendar_navigationbar { background-color: #191D2E; }
+    QToolButton {
+        color: #DDE8FF; background-color: #191D2E; border: none;
+        border-radius: 4px; padding: 4px 10px; margin: 2px; font-size: 13px;
+    }
+    QToolButton:hover { background-color: #222844; color: #5295FF; }
+    QToolButton::menu-indicator { image: none; }
+    QSpinBox {
+        background-color: #191D2E; color: #DDE8FF; border: 1px solid #222844;
+        border-radius: 4px; padding: 2px 4px;
+    }
+    QMenu { background-color: #191D2E; color: #DDE8FF; border: 1px solid #222844; }
+    QMenu::item:selected { background-color: #5295FF; color: #0F1117; }
+    QAbstractItemView {
+        background-color: #0F1117; color: #DDE8FF;
+        alternate-background-color: #161928;
+        selection-background-color: #5295FF; selection-color: #0F1117;
+        outline: none; border: none;
+    }
+    QAbstractItemView::item { padding: 2px; border: none; }
+    QHeaderView::section {
+        color: #7488B8; background-color: #191D2E;
+        padding: 4px 2px; font-size: 12px; font-weight: 600;
+        border: none; letter-spacing: 0; text-transform: none;
+    }
+"""
+
+
+def _style_calendar(date_edit: QDateEdit) -> None:
+    """Apply dark theme to a QDateEdit's calendar popup, including date cell text colors.
+
+    CSS alone cannot override QCalendarWidget's QTextCharFormat-based weekday rendering,
+    so we set formats programmatically here to ensure all dates are visible on the dark
+    background.
+    """
+    cal = date_edit.calendarWidget()
+    cal.setStyleSheet(_CALENDAR_POPUP_SS)
+
+    day_fmt = QTextCharFormat()
+    day_fmt.setForeground(QColor("#DDE8FF"))
+    for d in (Qt.Monday, Qt.Tuesday, Qt.Wednesday, Qt.Thursday, Qt.Friday):
+        cal.setWeekdayTextFormat(d, day_fmt)
+
+    sat_fmt = QTextCharFormat()
+    sat_fmt.setForeground(QColor("#7EB8FF"))
+    cal.setWeekdayTextFormat(Qt.Saturday, sat_fmt)
+
+    sun_fmt = QTextCharFormat()
+    sun_fmt.setForeground(QColor("#FF7E7E"))
+    cal.setWeekdayTextFormat(Qt.Sunday, sun_fmt)
+
+    hdr_fmt = QTextCharFormat()
+    hdr_fmt.setForeground(QColor("#7488B8"))
+    cal.setHeaderTextFormat(hdr_fmt)
 
 
 _TAB_SS = """
@@ -186,6 +244,7 @@ class IncomeTab(QWidget):
         date_label = QLabel("Date:")
         self.date_input = QDateEdit()
         self.date_input.setCalendarPopup(True)
+        _style_calendar(self.date_input)
         self.date_input.setDate(QDate.currentDate())
         form_layout.addWidget(date_label, 3, 0)
         form_layout.addWidget(self.date_input, 3, 1)
@@ -302,6 +361,7 @@ class ExpenseTab(QWidget):
         date_label = QLabel("Date:")
         self.expense_date_input = QDateEdit()
         self.expense_date_input.setCalendarPopup(True)
+        _style_calendar(self.expense_date_input)
         self.expense_date_input.setDate(QDate.currentDate())
         form_layout.addWidget(date_label, 3, 0)
         form_layout.addWidget(self.expense_date_input, 3, 1)
@@ -538,6 +598,7 @@ class GoalsTab(QWidget):
         deadline_label = QLabel("Deadline:")
         self.deadline_input = QDateEdit()
         self.deadline_input.setCalendarPopup(True)
+        _style_calendar(self.deadline_input)
         self.deadline_input.setDate(QDate.currentDate())
         form_layout.addWidget(deadline_label, 3, 0)
         form_layout.addWidget(self.deadline_input, 3, 1)
@@ -1045,6 +1106,7 @@ class _LedgerTransactionDialog(_QD):
 
         self.date_edit = _QDE()
         self.date_edit.setCalendarPopup(True)
+        _style_calendar(self.date_edit)
         self.date_edit.setDate(_QDA.currentDate())
 
         self.desc_input = _QLI()

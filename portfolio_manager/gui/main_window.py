@@ -30,6 +30,7 @@ from gui.news_tab import NewsTab
 from gui.portfolio_optimization_tab import PortfolioOptimizationTab
 from gui.personal_finance_tab import PersonalFinanceTab
 from gui.tax_management_tab import TaxManagementTab
+from gui.position_size_calculator import PositionSizeCalculator
 from services.tax_service import TaxService
 
 from gui.portfolio_table import PortfolioTableModel, PortfolioTableView, ClosedPositionsTableView
@@ -46,9 +47,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Portfolio Manager")
         self.setGeometry(100, 100, 1200, 800)
-        # Maximize the window
-        self.showMaximized()
-        
+
         # Initialize services
         self.portfolio_service = portfolio_service
         self.personal_finance_service = personal_finance_service
@@ -159,7 +158,14 @@ class MainWindow(QMainWindow):
         reset_action = QAction("&Reset Application", self)
         reset_action.setStatusTip("Reset application to initial state")
         edit_menu.addAction(reset_action)
-        
+
+        # Tools menu
+        tools_menu = menubar.addMenu("&Tools")
+        pos_sizer_action = QAction("&Position Size Calculator", self)
+        pos_sizer_action.setShortcut("Ctrl+P")
+        pos_sizer_action.setStatusTip("Open the position size calculator")
+        tools_menu.addAction(pos_sizer_action)
+
         # Connect actions
         exit_action.triggered.connect(self.close)
         add_position_action.triggered.connect(self.show_add_position_dialog)
@@ -168,6 +174,7 @@ class MainWindow(QMainWindow):
         edit_position_action.triggered.connect(self.edit_position)
         delete_position_action.triggered.connect(self.delete_position)
         reset_action.triggered.connect(self.reset_application)
+        pos_sizer_action.triggered.connect(self.show_position_sizer)
     
     def create_toolbar(self):
         """Create toolbar with SVG-icon QActions."""
@@ -207,13 +214,11 @@ class MainWindow(QMainWindow):
         """)
 
         add_action = QAction(get_icon("ACT_ADD"), "Add Position", self)
-        add_action.setShortcut("Ctrl+N")
         add_action.setToolTip("Add new position  (Ctrl+N)")
         add_action.triggered.connect(self.show_add_position_dialog)
         toolbar.addAction(add_action)
 
         div_action = QAction(get_icon("ACT_DIVIDEND"), "Add Dividend", self)
-        div_action.setShortcut("Ctrl+D")
         div_action.setToolTip("Record dividend payment  (Ctrl+D)")
         div_action.triggered.connect(self.show_dividend_dialog)
         toolbar.addAction(div_action)
@@ -226,13 +231,11 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
 
         edit_action = QAction(get_icon("ACT_EDIT"), "Edit", self)
-        edit_action.setShortcut("Ctrl+E")
         edit_action.setToolTip("Edit selected position  (Ctrl+E)")
         edit_action.triggered.connect(self.edit_position)
         toolbar.addAction(edit_action)
 
         delete_action = QAction(get_icon("ACT_DELETE"), "Delete", self)
-        delete_action.setShortcut("Del")
         delete_action.setToolTip("Delete selected position  (Del)")
         delete_action.triggered.connect(self.delete_position)
         toolbar.addAction(delete_action)
@@ -243,6 +246,13 @@ class MainWindow(QMainWindow):
         refresh_action.setToolTip("Refresh all prices")
         refresh_action.triggered.connect(self.refresh_prices)
         toolbar.addAction(refresh_action)
+
+        toolbar.addSeparator()
+
+        calc_action = QAction(get_icon("ACT_CALC"), "Position Sizer", self)
+        calc_action.setToolTip("Open the position size calculator  (Ctrl+P)")
+        calc_action.triggered.connect(self.show_position_sizer)
+        toolbar.addAction(calc_action)
     
     def create_status_bar(self):
         """Create status bar."""
@@ -435,6 +445,13 @@ class MainWindow(QMainWindow):
             QMainWindow {
                 background-color: #0F1117;
             }
+            QPushButton {
+                background-color: #5295FF; color: #0F1117; border: none;
+                border-radius: 6px; padding: 8px 20px; font-size: 13px;
+                font-weight: 600; min-width: 80px;
+            }
+            QPushButton:hover { background-color: #4080EE; }
+            QPushButton:pressed { background-color: #327AE0; }
         """)
 
     def create_connections(self):
@@ -502,6 +519,11 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Delete Position", 
                               "Please select a position to delete.")
     
+    def show_position_sizer(self):
+        """Open the position size calculator dialog."""
+        dlg = PositionSizeCalculator(self.portfolio_service, parent=self)
+        dlg.exec()
+
     def refresh_prices(self):
         """Refresh all stock prices."""
         try:

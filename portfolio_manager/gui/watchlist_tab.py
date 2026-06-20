@@ -387,4 +387,22 @@ class WatchlistTab(QWidget):
         ticker = self._table.item(row_idx, COL_TICKER)
         ticker_text = ticker.text() if ticker else "this stock"
 
-        reply = QMessageBo
+        reply = QMessageBox.question(
+            self,
+            "Remove from Watchlist",
+            f"Remove {ticker_text} from the watchlist?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply == QMessageBox.Yes:
+            item_id = self._row_ids[row_idx]
+            if self._watchlist_service.remove_item(item_id):
+                self.load_data()
+            else:
+                QMessageBox.warning(self, "Remove", "Could not remove the item.")
+
+    def _selected_item_id(self) -> int | None:
+        rows = self._table.selectionModel().selectedRows()
+        if rows:
+            return self._row_ids[rows[0].row()]
+        return None

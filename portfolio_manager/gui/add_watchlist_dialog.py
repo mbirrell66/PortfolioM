@@ -158,7 +158,7 @@ class AddWatchlistItemDialog(QDialog):
             company = self.company_name_input.text().strip() or ticker
             entry_price = self.entry_price_spin.value()
             entry_date = self.entry_date_edit.date().toPython()
-            shares = self.shares_spin.value() if self.shares_spin.value() > 0 else None
+            shares = round(self.shares_spin.value()) if self.shares_spin.value() > 0 else None
             target = self.target_price_spin.value() if self.target_price_spin.value() > 0 else None
             notes = self.notes_text.toPlainText().strip() or None
 

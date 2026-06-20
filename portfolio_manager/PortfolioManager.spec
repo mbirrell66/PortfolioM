@@ -93,4 +93,23 @@ exe = EXE(
     name='PortfolioManager',
     debug=False,
     bootloader_ignore_signals=False,
-    stri
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    console=False,
+    icon='PortM.png',
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='PortfolioManager',
+)

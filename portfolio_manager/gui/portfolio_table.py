@@ -47,7 +47,7 @@ class PortfolioTableModel(QAbstractTableModel):
 
     HEADERS = [
         "Ticker", "Company", "Shares", "Buy Date",
-        "Buy Price", "Commission", "Cost Basis",
+        "Buy Price", "Commission", "Cost Basis", "Dollar Cost Avg",
         "Current Price", "Market Value", "Unrealised G/L", "G/L %",
     ]
 
@@ -56,6 +56,7 @@ class PortfolioTableModel(QAbstractTableModel):
         self.positions = []
         self.portfolio_service = PortfolioService()
         self._price_cache = {}
+        self._dca_cache = {}
 
     # -- data loading -------------------------------------------------------
     def load_data(self):
@@ -69,6 +70,7 @@ class PortfolioTableModel(QAbstractTableModel):
         finally:
             db.close()
         self._price_cache = {}
+        self._dca_cache = {}
         self.layoutChanged.emit()
 
     def refresh_data(self):
@@ -81,6 +83,26 @@ class PortfolioTableModel(QAbstractTableModel):
                     self.portfolio_service.get_current_price(pos.ticker)
                 )
         return self._price_cache
+
+    def _dca(self):
+        """Weighted-average cost per share (incl. buy commission) per ticker.
+
+        Aggregates every open lot of a ticker, so when additional shares of an
+        already-held stock are bought, this reflects the blended cost. Display
+        only -- it does not alter stored positions or any other calculation.
+        """
+        if not self._dca_cache:
+            agg = {}
+            for pos in self.positions:
+                cost, shares = agg.get(pos.ticker, (0.0, 0))
+                cost += pos.purchase_price * pos.shares + (pos.buy_commission or 0.0)
+                shares += pos.shares
+                agg[pos.ticker] = (cost, shares)
+            self._dca_cache = {
+                ticker: (cost / shares if shares else 0.0)
+                for ticker, (cost, shares) in agg.items()
+            }
+        return self._dca_cache
 
     # -- Qt overrides -------------------------------------------------------
     def rowCount(self, parent=QModelIndex()):
@@ -107,6 +129,7 @@ class PortfolioTableModel(QAbstractTableModel):
         cur_price = prices.get(pos.ticker, 0.0)
         buy_comm = pos.buy_commission or 0.0
         cost_basis = pos.purchase_price * pos.shares + buy_comm
+        dca = self._dca().get(pos.ticker, 0.0)
         market_val = cur_price * pos.shares
         gl = market_val - cost_basis
         gl_pct = (gl / cost_basis * 100) if cost_basis else 0.0
@@ -119,17 +142,18 @@ class PortfolioTableModel(QAbstractTableModel):
             if col == 4:  return f"${pos.purchase_price:.2f}"
             if col == 5:  return f"${buy_comm:.2f}"
             if col == 6:  return f"${cost_basis:.2f}"
-            if col == 7:  return f"${cur_price:.2f}" if cur_price else "N/A"
-            if col == 8:  return f"${market_val:.2f}" if cur_price else "N/A"
-            if col == 9:  return f"${gl:.2f}" if cur_price else "N/A"
-            if col == 10: return f"{gl_pct:.2f}%" if cur_price else "N/A"
+            if col == 7:  return f"${dca:.2f}"
+            if col == 8:  return f"${cur_price:.2f}" if cur_price else "N/A"
+            if col == 9:  return f"${market_val:.2f}" if cur_price else "N/A"
+            if col == 10: return f"${gl:.2f}" if cur_price else "N/A"
+            if col == 11: return f"{gl_pct:.2f}%" if cur_price else "N/A"
 
         elif role == Qt.ForegroundRole:
-            if col in (9, 10) and cur_price:
+            if col in (10, 11) and cur_price:
                 return QColor("#38D88A") if gl >= 0 else QColor("#FF5068")
 
         elif role == Qt.TextAlignmentRole:
-            if col in (2, 4, 5, 6, 7, 8, 9, 10):
+            if col in (2, 4, 5, 6, 7, 8, 9, 10, 11):
                 return int(Qt.AlignRight | Qt.AlignVCenter)
 
         return None

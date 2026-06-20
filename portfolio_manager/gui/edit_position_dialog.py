@@ -1,5 +1,6 @@
 """
 Edit position dialog for Portfolio Manager
+Supports full and partial position closes.
 """
 
 from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QVBoxLayout, QHBoxLayout,
@@ -11,11 +12,14 @@ from services.portfolio_service import PortfolioService
 
 
 class EditPositionDialog(QDialog):
-    """Dialog for editing an existing position, including closing (selling) it."""
+    """Dialog for editing an existing position, including full or partial closes."""
 
     _SS = """
         QDialog { background-color: #0F1117; }
         QLabel { color: #7488B8; font-size: 13px; }
+        QLabel#info_label { color: #DDE8FF; font-size: 13px; font-weight: 600; }
+        QLabel#partial_label { color: #FFD166; font-size: 12px; font-weight: 600; }
+        QLabel#full_label    { color: #38D88A; font-size: 12px; font-weight: 600; }
         QGroupBox {
             color: #7488B8; font-size: 12px; font-weight: 600;
             border: 1px solid #222844; border-radius: 6px;
@@ -52,12 +56,11 @@ class EditPositionDialog(QDialog):
     """
 
     def __init__(self, position_id, parent=None):
-        """Initialize dialog with existing position data."""
         super().__init__(parent)
         self.position_id = position_id
         self.setWindowTitle("Edit Position")
         self.setModal(True)
-        self.setMinimumWidth(460)
+        self.setMinimumWidth(480)
         self.setStyleSheet(self._SS)
 
         self.portfolio_service = PortfolioService()
@@ -109,20 +112,38 @@ class EditPositionDialog(QDialog):
         buy_form.addRow("Company Name:", self.company_name_input)
         buy_form.addRow("Buy Date:", self.purchase_date_edit)
         buy_form.addRow("Buy Price:", self.purchase_price_spin)
-        buy_form.addRow("Shares:", self.shares_spin)
+        buy_form.addRow("Shares Held:", self.shares_spin)
         buy_form.addRow("Buy Commission:", self.buy_commission_spin)
         layout.addWidget(buy_group)
 
         # ---- Sell details group ---------------------------------------
         sell_group = QGroupBox("Sell Transaction")
         sell_layout = QVBoxLayout(sell_group)
+        sell_layout.setSpacing(8)
 
-        self.sold_checkbox = QCheckBox("Mark as sold")
+        self.sold_checkbox = QCheckBox("Close position (full or partial)")
         self.sold_checkbox.toggled.connect(self._on_sold_toggled)
         sell_layout.addWidget(self.sold_checkbox)
 
         sell_form = QFormLayout()
         sell_form.setSpacing(8)
+
+        # Shares to sell row
+        shares_sell_row = QHBoxLayout()
+        self.shares_to_sell_spin = QSpinBox()
+        self.shares_to_sell_spin.setRange(1, 1)          # max set in _populate_fields
+        self.shares_to_sell_spin.valueChanged.connect(self._on_shares_to_sell_changed)
+        self.close_type_label = QLabel("")
+        self.close_type_label.setMinimumWidth(100)
+        shares_sell_row.addWidget(self.shares_to_sell_spin)
+        shares_sell_row.addWidget(self.close_type_label)
+        shares_sell_row.addStretch()
+        sell_form.addRow("Shares to Sell:", shares_sell_row)
+
+        # Remaining shares indicator
+        self.remaining_label = QLabel("")
+        self.remaining_label.setObjectName("info_label")
+        sell_form.addRow("Remaining after sell:", self.remaining_label)
 
         self.sell_date_edit = QDateEdit()
         self.sell_date_edit.setCalendarPopup(True)
@@ -160,16 +181,38 @@ class EditPositionDialog(QDialog):
         self.button_box.rejected.connect(self.reject)
         layout.addWidget(self.button_box)
 
-        # Start with sell fields disabled
+        # Sell fields start disabled
         self._set_sell_enabled(False)
 
+    # ------------------------------------------------------------------
     def _set_sell_enabled(self, enabled: bool):
+        self.shares_to_sell_spin.setEnabled(enabled)
         self.sell_date_edit.setEnabled(enabled)
         self.sell_price_spin.setEnabled(enabled)
         self.sell_commission_spin.setEnabled(enabled)
+        if not enabled:
+            self.close_type_label.setText("")
+            self.remaining_label.setText("")
 
     def _on_sold_toggled(self, checked: bool):
         self._set_sell_enabled(checked)
+        if checked:
+            self._on_shares_to_sell_changed(self.shares_to_sell_spin.value())
+
+    def _on_shares_to_sell_changed(self, value: int):
+        total = self.shares_spin.value()
+        remaining = total - value
+        self.remaining_label.setText(
+            "{:,} share{}".format(remaining, "s" if remaining != 1 else ""))
+        if value == total:
+            self.close_type_label.setText("Full Close")
+            self.close_type_label.setObjectName("full_label")
+        else:
+            self.close_type_label.setText("Partial Close")
+            self.close_type_label.setObjectName("partial_label")
+        # Force QSS re-evaluation after objectName change
+        self.close_type_label.style().unpolish(self.close_type_label)
+        self.close_type_label.style().polish(self.close_type_label)
 
     # ------------------------------------------------------------------
     def _populate_fields(self):
@@ -184,6 +227,11 @@ class EditPositionDialog(QDialog):
         self.purchase_price_spin.setValue(p.purchase_price or 0.0)
         self.shares_spin.setValue(p.shares or 1)
         self.buy_commission_spin.setValue(p.buy_commission or 0.0)
+
+        # Set shares-to-sell max and default to all shares
+        total = p.shares or 1
+        self.shares_to_sell_spin.setRange(1, total)
+        self.shares_to_sell_spin.setValue(total)
 
         if p.sell_date:
             self.sold_checkbox.setChecked(True)
@@ -208,36 +256,60 @@ class EditPositionDialog(QDialog):
         if self.shares_spin.value() <= 0:
             QMessageBox.warning(self, "Validation Error", "Shares must be greater than zero.")
             return False
-        if self.sold_checkbox.isChecked() and self.sell_price_spin.value() <= 0:
-            QMessageBox.warning(self, "Validation Error", "Sell price must be greater than zero.")
-            return False
+        if self.sold_checkbox.isChecked():
+            if self.sell_price_spin.value() <= 0:
+                QMessageBox.warning(self, "Validation Error",
+                                    "Sell price must be greater than zero.")
+                return False
+            if self.shares_to_sell_spin.value() > self.shares_spin.value():
+                QMessageBox.warning(self, "Validation Error",
+                                    "Shares to sell cannot exceed shares held.")
+                return False
         return True
 
     # ------------------------------------------------------------------
     def accept(self):
-        """Save changes on OK."""
         if not self._validate():
             return
 
         try:
-            kwargs = dict(
-                ticker=self.ticker_input.text().strip().upper(),
-                company_name=self.company_name_input.text().strip(),
-                purchase_date=self.purchase_date_edit.date().toPython(),
-                shares=self.shares_spin.value(),
-                buy_commission=self.buy_commission_spin.value(),
-                notes=self.notes_text.toPlainText().strip(),
+            # Always save basic edits first (ticker, company, dates, notes, etc.)
+            # but NOT the sell fields — those are handled by partial_close_position.
+            non_sell_kwargs = dict(
+                ticker        = self.ticker_input.text().strip().upper(),
+                company_name  = self.company_name_input.text().strip(),
+                purchase_date = self.purchase_date_edit.date().toPython(),
+                shares        = self.shares_spin.value(),
+                buy_commission= self.buy_commission_spin.value(),
+                notes         = self.notes_text.toPlainText().strip(),
             )
-            if self.sold_checkbox.isChecked():
-                kwargs['sell_date'] = self.sell_date_edit.date().toPython()
-                kwargs['sell_price'] = self.sell_price_spin.value()
-                kwargs['sell_commission'] = self.sell_commission_spin.value()
-            else:
-                kwargs['sell_date'] = None
-                kwargs['sell_price'] = None
-                kwargs['sell_commission'] = 0.0
 
-            self.portfolio_service.update_position(self.position_id, **kwargs)
+            if self.sold_checkbox.isChecked():
+                shares_to_sell   = self.shares_to_sell_spin.value()
+                sell_date        = self.sell_date_edit.date().toPython()
+                sell_price       = self.sell_price_spin.value()
+                sell_commission  = self.sell_commission_spin.value()
+
+                # Save non-sell edits to the original position first
+                self.portfolio_service.update_position(
+                    self.position_id, **non_sell_kwargs)
+
+                # Then perform the close (full or partial)
+                self.portfolio_service.partial_close_position(
+                    position_id    = self.position_id,
+                    shares_to_sell = shares_to_sell,
+                    sell_date      = sell_date,
+                    sell_price     = sell_price,
+                    sell_commission= sell_commission,
+                )
+            else:
+                # No sell — clear any existing sell data and save
+                non_sell_kwargs['sell_date']       = None
+                non_sell_kwargs['sell_price']      = None
+                non_sell_kwargs['sell_commission'] = 0.0
+                self.portfolio_service.update_position(
+                    self.position_id, **non_sell_kwargs)
+
             super().accept()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save position: {str(e)}")

@@ -34,6 +34,24 @@ _APP_STYLE = (
     "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }"
     "QToolTip { background-color: #191D2E; color: #DDE8FF;"
     " border: 1px solid #4B6599; border-radius: 4px; padding: 4px 8px; font-size: 12px; }"
+    # -- Calendar popup (QDateEdit setCalendarPopup) -----------------------
+    "QCalendarWidget QWidget { alternate-background-color: #191D2E; color: #DDE8FF; }"
+    "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #191D2E; }"
+    "QCalendarWidget QToolButton {"
+    " color: #DDE8FF; background-color: #191D2E; border: none;"
+    " border-radius: 4px; padding: 4px 10px; margin: 2px; font-size: 13px; }"
+    "QCalendarWidget QToolButton:hover { background-color: #222844; color: #5295FF; }"
+    "QCalendarWidget QToolButton::menu-indicator { image: none; }"
+    "QCalendarWidget QSpinBox {"
+    " background-color: #191D2E; color: #DDE8FF; border: 1px solid #222844;"
+    " border-radius: 4px; padding: 2px 4px; }"
+    "QCalendarWidget QMenu {"
+    " background-color: #191D2E; color: #DDE8FF; border: 1px solid #222844; }"
+    "QCalendarWidget QMenu::item:selected { background-color: #5295FF; color: #0F1117; }"
+    "QCalendarWidget QAbstractItemView:enabled {"
+    " background-color: #0F1117; color: #DDE8FF; gridline-color: #222844;"
+    " selection-background-color: #5295FF; selection-color: #0F1117; outline: none; }"
+    "QCalendarWidget QAbstractItemView:disabled { color: #4B6599; }"
 )
 
 
@@ -80,7 +98,11 @@ def main():
     def _launch():
         if splash:
             splash.finish(main_window)
-        main_window.showMaximized()
+        main_window.show()
+        # Centre the window on the primary screen at startup.
+        frame = main_window.frameGeometry()
+        frame.moveCenter(app.primaryScreen().availableGeometry().center())
+        main_window.move(frame.topLeft())
 
     QTimer.singleShot(3000, _launch)
 
