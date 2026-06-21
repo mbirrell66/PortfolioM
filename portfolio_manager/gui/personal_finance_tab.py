@@ -749,6 +749,7 @@ class LedgerTab(QWidget):
         self.type_filter.addItems([
             "All", "Deposit", "Withdrawal",
             "Buy", "Sell", "Dividend", "Income", "Expense",
+            "Option Premium", "Option Fees", "Option Buyback",
         ])
         self.type_filter.currentIndexChanged.connect(self._apply_filter)
         toolbar.addWidget(self.type_filter)
@@ -863,6 +864,7 @@ class LedgerTab(QWidget):
             print(f"Ledger income/expense error: {e}")
 
         # --- manual deposits / withdrawals ---
+        _CREDIT_TYPES = {"Deposit", "Option Premium"}
         try:
             from database.personal_finance_models import LedgerTransaction
             from database.database import SessionLocal as _SL
@@ -870,14 +872,18 @@ class LedgerTab(QWidget):
             try:
                 for txn in db.query(LedgerTransaction).all():
                     dt = txn.date.date() if hasattr(txn.date, 'date') else txn.date
-                    if txn.transaction_type == "Deposit":
-                        rows.append((dt, "Deposit",
-                                     txn.description or "Deposit",
-                                     0.0, txn.amount, txn.notes or "", txn.id))
+                    is_option = txn.source_type == 'option'
+                    is_credit = txn.transaction_type in _CREDIT_TYPES
+                    # Option rows are not deletable from the ledger UI (managed via Options tab)
+                    lid = None if is_option else txn.id
+                    if is_credit:
+                        rows.append((dt, txn.transaction_type,
+                                     txn.description or txn.transaction_type,
+                                     0.0, txn.amount, txn.notes or "", lid))
                     else:
-                        rows.append((dt, "Withdrawal",
-                                     txn.description or "Withdrawal",
-                                     txn.amount, 0.0, txn.notes or "", txn.id))
+                        rows.append((dt, txn.transaction_type,
+                                     txn.description or txn.transaction_type,
+                                     txn.amount, 0.0, txn.notes or "", lid))
             finally:
                 db.close()
         except Exception as e:
@@ -910,13 +916,16 @@ class LedgerTab(QWidget):
         self.delete_btn.setEnabled(False)
 
         type_colors = {
-            "Buy":        "#FF5068",
-            "Sell":       "#38D88A",
-            "Dividend":   "#5295FF",
-            "Income":     "#38D88A",
-            "Expense":    "#FF5068",
-            "Deposit":    "#38D88A",
-            "Withdrawal": "#FF5068",
+            "Buy":             "#FF5068",
+            "Sell":            "#38D88A",
+            "Dividend":        "#5295FF",
+            "Income":          "#38D88A",
+            "Expense":         "#FF5068",
+            "Deposit":         "#38D88A",
+            "Withdrawal":      "#FF5068",
+            "Option Premium":  "#C07BFF",
+            "Option Fees":     "#FF8C42",
+            "Option Buyback":  "#FF5068",
         }
 
         from PySide6.QtGui import QColor as _QC

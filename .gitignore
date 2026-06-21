@@ -1,2 +1,13 @@
+# Python
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Build / packaging output
+build/
+dist/
+*.exe
+installer/Output/
+
+# Local database (contains personal data)
+*.db

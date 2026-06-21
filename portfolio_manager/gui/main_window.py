@@ -30,8 +30,10 @@ from gui.news_tab import NewsTab
 from gui.portfolio_optimization_tab import PortfolioOptimizationTab
 from gui.personal_finance_tab import PersonalFinanceTab
 from gui.tax_management_tab import TaxManagementTab
+from gui.options_tab import OptionsTab
 from gui.position_size_calculator import PositionSizeCalculator
 from services.tax_service import TaxService
+from services.options_service import OptionsService
 
 from gui.portfolio_table import PortfolioTableModel, PortfolioTableView, ClosedPositionsTableView
 from gui.add_position_dialog import AddPositionDialog
@@ -349,6 +351,11 @@ class MainWindow(QMainWindow):
 
         self.tax_management_tab = TaxManagementTab(self.tax_service)
         tab_widget.addTab(self.tax_management_tab, get_icon("TAX"), "Tax Management")
+
+        options_svc = OptionsService()
+        self.options_tab = OptionsTab(options_svc, self.portfolio_service,
+                                      self.personal_finance_service)
+        tab_widget.addTab(self.options_tab, get_icon("FINANCE"), "Options")
 
         settings_tab = SettingsTab()
         tab_widget.addTab(settings_tab, get_icon("SETTINGS"), "Settings")

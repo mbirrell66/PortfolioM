@@ -236,6 +236,70 @@ class PersonalFinanceService:
         finally:
             db.close()
     
+    def get_ledger_balance(self, portfolio_service=None) -> float:
+        """Return the current running balance from the full ledger.
+
+        Mirrors the calculation in LedgerTab.load_data() so the Options tab
+        can read the live cash position without going through the GUI.
+        """
+        from database.database import SessionLocal as _SL
+        credits = 0.0
+        debits  = 0.0
+
+        # Portfolio buys / sells
+        if portfolio_service:
+            try:
+                for pos in portfolio_service.get_positions():
+                    debits += pos.purchase_price * pos.shares + (pos.buy_commission or 0.0)
+                    if pos.sell_date and pos.sell_price:
+                        credits += pos.sell_price * pos.shares - (pos.sell_commission or 0.0)
+            except Exception:
+                pass
+
+            # Dividends
+            try:
+                from database.models import DividendEvent
+                db = _SL()
+                try:
+                    for div in db.query(DividendEvent).all():
+                        credits += div.cash_received
+                finally:
+                    db.close()
+            except Exception:
+                pass
+
+        # Income / expenses
+        try:
+            from database.personal_finance_models import Income, Expense
+            db = _SL()
+            try:
+                for inc in db.query(Income).all():
+                    credits += inc.amount
+                for exp in db.query(Expense).all():
+                    debits += exp.amount
+            finally:
+                db.close()
+        except Exception:
+            pass
+
+        # Manual deposits / withdrawals + option ledger entries
+        _CREDIT_TYPES = {"Deposit", "Option Premium"}
+        try:
+            from database.personal_finance_models import LedgerTransaction
+            db = _SL()
+            try:
+                for txn in db.query(LedgerTransaction).all():
+                    if txn.transaction_type in _CREDIT_TYPES:
+                        credits += txn.amount
+                    else:
+                        debits += txn.amount
+            finally:
+                db.close()
+        except Exception:
+            pass
+
+        return credits - debits
+
     def get_monthly_summary(self, year: int, month: int) -> Dict:
         """Get financial summary for a specific month."""
         db = next(self.get_db())

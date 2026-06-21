@@ -11,6 +11,7 @@ from .models import Base
 from .personal_finance_models import Base as PersonalFinanceBase
 from .tax_models import Base as TaxBase
 from .watchlist_models import WatchlistBase
+from .options_models import OptionsBase
 
 # Resolve data directory correctly whether running from source or as a
 # PyInstaller bundle.  When frozen, __file__ points inside _internal/ and
@@ -47,9 +48,12 @@ def init_database():
     PersonalFinanceBase.metadata.create_all(engine)
     TaxBase.metadata.create_all(engine)
     WatchlistBase.metadata.create_all(engine)
+    OptionsBase.metadata.create_all(engine)
 
     # Non-destructive migration: add new columns to positions if they don't exist
     _migrate_positions_table()
+    _migrate_options_table()
+    _migrate_ledger_table()
 
 
 def _migrate_positions_table():
@@ -71,8 +75,47 @@ def _migrate_positions_table():
                     ))
             conn.commit()
     except Exception as e:
-        # Table may not exist yet (first run) — create_all handles it
         print(f"Migration note: {e}")
+
+
+def _migrate_options_table():
+    """Add open_date / close_date to options_positions if not already present."""
+    new_columns = [
+        ('open_date',  'DATE'),
+        ('close_date', 'DATE'),
+    ]
+    try:
+        insp = inspect(engine)
+        existing = {c['name'] for c in insp.get_columns('options_positions')}
+        with engine.connect() as conn:
+            for col_name, col_def in new_columns:
+                if col_name not in existing:
+                    conn.execute(text(
+                        f'ALTER TABLE options_positions ADD COLUMN {col_name} {col_def}'
+                    ))
+            conn.commit()
+    except Exception as e:
+        print(f"Options migration note: {e}")
+
+
+def _migrate_ledger_table():
+    """Add source_type / source_id to ledger_transactions if not already present."""
+    new_columns = [
+        ('source_type', 'VARCHAR(20)'),
+        ('source_id',   'INTEGER'),
+    ]
+    try:
+        insp = inspect(engine)
+        existing = {c['name'] for c in insp.get_columns('ledger_transactions')}
+        with engine.connect() as conn:
+            for col_name, col_def in new_columns:
+                if col_name not in existing:
+                    conn.execute(text(
+                        f'ALTER TABLE ledger_transactions ADD COLUMN {col_name} {col_def}'
+                    ))
+            conn.commit()
+    except Exception as e:
+        print(f"Ledger migration note: {e}")
 
 
 def get_db():

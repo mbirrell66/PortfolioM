@@ -156,11 +156,15 @@ class SettingsTab(QWidget):
         button_layout = QHBoxLayout()
         save_btn = QPushButton("Save Settings")
         save_btn.clicked.connect(self.save_settings)
-        
+
+        restore_btn = QPushButton("Restore Saved Settings")
+        restore_btn.clicked.connect(self.restore_settings)
+
         reset_btn = QPushButton("Reset to Defaults")
         reset_btn.clicked.connect(self.reset_settings)
-        
+
         button_layout.addWidget(save_btn)
+        button_layout.addWidget(restore_btn)
         button_layout.addWidget(reset_btn)
         button_layout.addStretch()
         
@@ -176,28 +180,55 @@ class SettingsTab(QWidget):
         layout.setContentsMargins(15, 15, 15, 15)
     
     def load_settings(self):
-        """Load saved settings from file."""
+        """Load saved settings from file (silent; called on startup)."""
         try:
-            import json
-            import os
-            
-            # Get the settings file path
-            settings_path = "config/settings.json"
-            
-            # Check if settings file exists
-            if os.path.exists(settings_path):
-                with open(settings_path, 'r') as f:
-                    settings = json.load(f)
-                
-                # Load settings values
-                if 'auto_refresh' in settings:
-                    self.auto_refresh_checkbox.setChecked(settings['auto_refresh'])
-                if 'refresh_interval' in settings:
-                    self.data_refresh_interval_spin.setValue(settings['refresh_interval'])
-                if 'default_currency' in settings:
-                    self.default_currency_combo.setCurrentText(settings['default_currency'])
+            self._apply_saved_settings()
         except Exception as e:
             print(f"Error loading settings: {e}")
+
+    def _apply_saved_settings(self):
+        """Apply settings from config/settings.json to the form widgets.
+
+        Returns True if a settings file was found and applied, False if no
+        settings file exists yet. Raises on read/parse errors.
+        """
+        import json
+        import os
+
+        settings_path = "config/settings.json"
+        if not os.path.exists(settings_path):
+            return False
+
+        with open(settings_path, 'r') as f:
+            settings = json.load(f)
+
+        if 'auto_refresh' in settings:
+            self.auto_refresh_checkbox.setChecked(settings['auto_refresh'])
+        if 'theme' in settings:
+            self.theme_combo.setCurrentText(settings['theme'])
+        if 'refresh_interval' in settings:
+            self.data_refresh_interval_spin.setValue(settings['refresh_interval'])
+        if 'data_source' in settings:
+            self.data_source_combo.setCurrentText(settings['data_source'])
+        if 'cache_enabled' in settings:
+            self.cache_enabled_checkbox.setChecked(settings['cache_enabled'])
+        if 'default_currency' in settings:
+            self.default_currency_combo.setCurrentText(settings['default_currency'])
+        if 'show_zero_positions' in settings:
+            self.show_zero_positions_checkbox.setChecked(settings['show_zero_positions'])
+        return True
+
+    def restore_settings(self):
+        """Reload the last saved settings into the form on demand."""
+        try:
+            found = self._apply_saved_settings()
+        except Exception as e:
+            self._set_status(f"Error restoring settings: {e}", error=True)
+            return
+        if found:
+            self._set_status("Settings restored from last save.")
+        else:
+            self._set_status("No saved settings found to restore.", error=True)
     
     def save_settings(self):
         """Save current settings."""
@@ -216,8 +247,12 @@ class SettingsTab(QWidget):
             
             # Update with current settings
             settings['auto_refresh'] = self.auto_refresh_checkbox.isChecked()
+            settings['theme'] = self.theme_combo.currentText()
             settings['refresh_interval'] = self.data_refresh_interval_spin.value()
+            settings['data_source'] = self.data_source_combo.currentText()
+            settings['cache_enabled'] = self.cache_enabled_checkbox.isChecked()
             settings['default_currency'] = self.default_currency_combo.currentText()
+            settings['show_zero_positions'] = self.show_zero_positions_checkbox.isChecked()
             
             # Save settings to file
             with open(settings_path, 'w') as f:

@@ -99,8 +99,10 @@ class LedgerTransaction(Base):
 
     id = Column(Integer, primary_key=True)
     date = Column(DateTime, nullable=False)
-    transaction_type = Column(String(20), nullable=False)   # 'Deposit' | 'Withdrawal'
+    transaction_type = Column(String(30), nullable=False)
     description = Column(String(500), nullable=True)
     amount = Column(Float, nullable=False)
     notes = Column(String(1000), nullable=True)
+    source_type = Column(String(20), nullable=True)    # 'option' | None
+    source_id   = Column(Integer,    nullable=True)    # ref to originating record
     created_at = Column(DateTime, default=datetime.utcnow)

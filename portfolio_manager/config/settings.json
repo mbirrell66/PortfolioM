@@ -12,5 +12,9 @@
         "JPY",
         "AUD"
     ],
-    "auto_refresh": true
+    "auto_refresh": true,
+    "theme": "Dark",
+    "data_source": "Yahoo Finance",
+    "cache_enabled": true,
+    "show_zero_positions": false
 }
