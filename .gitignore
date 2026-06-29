@@ -11,3 +11,6 @@ installer/Output/
 
 # Local database (contains personal data)
 *.db
+
+# Exclude installer package because it is huge
+installer/
