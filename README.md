@@ -1,7 +1,9 @@
 # Portfolio Manager
 
 A desktop application for managing investment portfolios with real-time market data, personal finance tracking, options management, and a modern dark-themed GUI.
-See my Web sites: 
+
+See my Web sites:
+
 http://etfvaluer.com 
 http://optionsvaluer.com
 
