@@ -4,7 +4,7 @@ A desktop application for managing investment portfolios with real-time market d
 
 See my Web sites:
 
-http://etfvaluer.com 
+http://etfvaluer.com
 http://optionsvaluer.com
 
 ## Features
