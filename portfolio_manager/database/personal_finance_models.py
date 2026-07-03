@@ -31,8 +31,9 @@ class Income(Base):
     description = Column(Text)
     date = Column(DateTime, default=datetime.utcnow)
     is_recurring = Column(Boolean, default=False)
+    parent_id = Column(Integer, ForeignKey('incomes.id'), nullable=True)  # links auto-posted occurrences to their recurring template
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     category = relationship("IncomeCategory", back_populates="incomes")
 
@@ -59,8 +60,9 @@ class Expense(Base):
     description = Column(Text)
     date = Column(DateTime, default=datetime.utcnow)
     is_recurring = Column(Boolean, default=False)
+    parent_id = Column(Integer, ForeignKey('expenses.id'), nullable=True)  # links auto-posted occurrences to their recurring template
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     category = relationship("ExpenseCategory", back_populates="expenses")
 

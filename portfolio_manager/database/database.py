@@ -54,6 +54,7 @@ def init_database():
     _migrate_positions_table()
     _migrate_options_table()
     _migrate_ledger_table()
+    _migrate_recurring_columns()
 
 
 def _migrate_positions_table():
@@ -116,6 +117,22 @@ def _migrate_ledger_table():
             conn.commit()
     except Exception as e:
         print(f"Ledger migration note: {e}")
+
+
+def _migrate_recurring_columns():
+    """Add parent_id to incomes / expenses if not already present."""
+    try:
+        insp = inspect(engine)
+        with engine.connect() as conn:
+            for table in ('incomes', 'expenses'):
+                existing = {c['name'] for c in insp.get_columns(table)}
+                if 'parent_id' not in existing:
+                    conn.execute(text(
+                        f'ALTER TABLE {table} ADD COLUMN parent_id INTEGER'
+                    ))
+            conn.commit()
+    except Exception as e:
+        print(f"Recurring migration note: {e}")
 
 
 def get_db():

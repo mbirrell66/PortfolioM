@@ -6,7 +6,7 @@ import os
 import sys
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, joinedload
 from database.personal_finance_models import (
     IncomeCategory, Income, ExpenseCategory, Expense,
     FinancialGoal, Budget
@@ -20,6 +20,70 @@ class PersonalFinanceService:
         """Initialize the personal finance service."""
         from database.database import get_db
         self.get_db = get_db
+
+    @staticmethod
+    def _to_datetime(value):
+        """Normalize a date or datetime (or None) to a datetime for storage."""
+        if value is None:
+            return datetime.utcnow()
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, date):
+            return datetime.combine(value, datetime.min.time())
+        return value
+
+    @staticmethod
+    def _next_month(dt: datetime, anchor_day: int) -> datetime:
+        """Return the same time next month, clamping to month length
+        (e.g. an anchor of 31 posts on Feb 28, then Mar 31 again)."""
+        import calendar
+        year, month = (dt.year + 1, 1) if dt.month == 12 else (dt.year, dt.month + 1)
+        day = min(anchor_day, calendar.monthrange(year, month)[1])
+        return datetime(year, month, day)
+
+    def process_recurring_transactions(self) -> int:
+        """Post monthly occurrences for recurring incomes/expenses up to today.
+
+        Records with is_recurring=True act as templates. Each elapsed month
+        since the template's last posted occurrence gets a normal (non-
+        recurring) record linked back via parent_id. Returns count posted.
+        """
+        posted = 0
+        now = datetime.utcnow()
+        db = next(self.get_db())
+        try:
+            for model in (Income, Expense):
+                templates = db.query(model).filter(
+                    model.is_recurring == True,  # noqa: E712
+                    model.parent_id == None      # noqa: E711
+                ).all()
+                for tpl in templates:
+                    tpl_date = self._to_datetime(tpl.date)
+                    anchor_day = tpl_date.day
+                    last = db.query(model).filter(
+                        model.parent_id == tpl.id
+                    ).order_by(model.date.desc()).first()
+                    cursor = self._to_datetime(last.date) if last else tpl_date
+                    next_date = self._next_month(cursor, anchor_day)
+                    while next_date <= now:
+                        db.add(model(
+                            amount=tpl.amount,
+                            category_id=tpl.category_id,
+                            description=tpl.description,
+                            date=next_date,
+                            is_recurring=False,
+                            parent_id=tpl.id,
+                        ))
+                        posted += 1
+                        next_date = self._next_month(next_date, anchor_day)
+            if posted:
+                db.commit()
+            return posted
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
     
     def create_income_category(self, name: str, description: str = "") -> IncomeCategory:
         """Create a new income category."""
@@ -55,7 +119,7 @@ class PersonalFinanceService:
                 amount=amount,
                 category_id=category_id,
                 description=description,
-                date=date or datetime.utcnow(),
+                date=self._to_datetime(date),
                 is_recurring=is_recurring
             )
             db.add(income)
@@ -72,7 +136,7 @@ class PersonalFinanceService:
         """Get income records within a date range."""
         db = next(self.get_db())
         try:
-            query = db.query(Income)
+            query = db.query(Income).options(joinedload(Income.category))
             if start_date:
                 query = query.filter(Income.date >= start_date)
             if end_date:
@@ -122,7 +186,7 @@ class PersonalFinanceService:
                 amount=amount,
                 category_id=category_id,
                 description=description,
-                date=date or datetime.utcnow(),
+                date=self._to_datetime(date),
                 is_recurring=is_recurring
             )
             db.add(expense)
@@ -139,7 +203,7 @@ class PersonalFinanceService:
         """Get expense records within a date range."""
         db = next(self.get_db())
         try:
-            query = db.query(Expense)
+            query = db.query(Expense).options(joinedload(Expense.category))
             if start_date:
                 query = query.filter(Expense.date >= start_date)
             if end_date:
@@ -188,8 +252,7 @@ class PersonalFinanceService:
             goal = db.query(FinancialGoal).filter(FinancialGoal.id == goal_id).first()
             if goal:
                 goal.current_amount = amount
-                if goal.current_amount >= goal.target_amount:
-                    goal.is_completed = True
+                goal.is_completed = goal.current_amount >= goal.target_amount
                 db.commit()
                 db.refresh(goal)
                 return goal
@@ -304,16 +367,22 @@ class PersonalFinanceService:
         """Get financial summary for a specific month."""
         db = next(self.get_db())
         try:
+            month_start = datetime(year, month, 1)
+            if month == 12:
+                month_end = datetime(year + 1, 1, 1)
+            else:
+                month_end = datetime(year, month + 1, 1)
+
             # Get all income for the month
             income_query = db.query(Income).filter(
-                Income.date >= datetime(year, month, 1),
-                Income.date < datetime(year, month, 1) + timedelta(days=32)
+                Income.date >= month_start,
+                Income.date < month_end
             ).all()
-            
+
             # Get all expenses for the month
             expense_query = db.query(Expense).filter(
-                Expense.date >= datetime(year, month, 1),
-                Expense.date < datetime(year, month, 1) + timedelta(days=32)
+                Expense.date >= month_start,
+                Expense.date < month_end
             ).all()
             
             total_income = sum(income.amount for income in income_query)

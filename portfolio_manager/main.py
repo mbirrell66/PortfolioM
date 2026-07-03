@@ -58,7 +58,9 @@ _APP_STYLE = (
 def _icon_path() -> Path:
     """Return the absolute path to PortM.png -- works frozen and non-frozen."""
     if getattr(sys, 'frozen', False):
-        return Path(sys.executable).parent / "PortM.png"
+        # PyInstaller extracts bundled data (onefile temp dir, or onedir's
+        # _internal folder) to sys._MEIPASS, not next to the executable.
+        return Path(getattr(sys, '_MEIPASS', Path(sys.executable).parent)) / "PortM.png"
     return Path(__file__).parent / "PortM.png"
 
 

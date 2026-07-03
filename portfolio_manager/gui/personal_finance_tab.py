@@ -8,7 +8,8 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget,
     QPushButton, QLabel, QLineEdit, QComboBox, QTableWidget,
     QTableWidgetItem, QHeaderView, QDateEdit, QGroupBox, 
-    QCheckBox, QMessageBox, QAbstractItemView
+    QCheckBox, QMessageBox, QAbstractItemView, QDialog, QDialogButtonBox,
+    QInputDialog
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QTextCharFormat, QColor
@@ -154,6 +155,63 @@ _TAB_SS = """
     }
     QProgressBar::chunk { background-color: #5295FF; border-radius: 3px; }
 """
+class CategoryDialog(QDialog):
+    """Dialog for creating a new income or expense category."""
+
+    def __init__(self, parent=None, title="New Category", include_budget=False):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setStyleSheet(_TAB_SS)
+        self.setMinimumWidth(320)
+
+        layout = QGridLayout(self)
+
+        layout.addWidget(QLabel("Name:"), 0, 0)
+        self.name_input = QLineEdit()
+        layout.addWidget(self.name_input, 0, 1)
+
+        layout.addWidget(QLabel("Description:"), 1, 0)
+        self.description_input = QLineEdit()
+        layout.addWidget(self.description_input, 1, 1)
+
+        self.budget_limit_input = None
+        row = 2
+        if include_budget:
+            layout.addWidget(QLabel("Budget Limit:"), row, 0)
+            self.budget_limit_input = QLineEdit()
+            self.budget_limit_input.setPlaceholderText("0.00 (optional)")
+            layout.addWidget(self.budget_limit_input, row, 1)
+            row += 1
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons, row, 0, 1, 2)
+
+        self.name_input.setFocus()
+
+    def _on_accept(self):
+        if not self.name_input.text().strip():
+            QMessageBox.warning(self, "Error", "Please enter a category name.")
+            return
+        if self.budget_limit_input and self.budget_limit_input.text().strip():
+            try:
+                float(self.budget_limit_input.text())
+            except ValueError:
+                QMessageBox.warning(self, "Error", "Please enter a valid budget limit.")
+                return
+        self.accept()
+
+    def get_values(self):
+        """Return (name, description, budget_limit)."""
+        budget_limit = 0.0
+        if self.budget_limit_input and self.budget_limit_input.text().strip():
+            budget_limit = float(self.budget_limit_input.text())
+        return (self.name_input.text().strip(),
+                self.description_input.text().strip(),
+                budget_limit)
+
+
 class PersonalFinanceTab(QWidget):
     """Main tab for personal finance tracking."""
     
@@ -163,6 +221,16 @@ class PersonalFinanceTab(QWidget):
         super().__init__()
         self.personal_finance_service = personal_finance_service
         self.portfolio_service = portfolio_service
+
+        # Post any due occurrences of recurring incomes/expenses before
+        # the tabs load their data
+        try:
+            posted = self.personal_finance_service.process_recurring_transactions()
+            if posted:
+                print(f"Posted {posted} recurring transaction(s)")
+        except Exception as e:
+            print(f"Recurring transaction processing error: {e}")
+
         self.setup_ui()
         self.load_data()
     
@@ -175,34 +243,56 @@ class PersonalFinanceTab(QWidget):
         tab_widget = QTabWidget()
         
         # Add income tab
-        income_tab = IncomeTab(self.personal_finance_service)
-        tab_widget.addTab(income_tab, "Income")
-        
+        self.income_tab = IncomeTab(self.personal_finance_service)
+        tab_widget.addTab(self.income_tab, "Income")
+
         # Add expense tab
-        expense_tab = ExpenseTab(self.personal_finance_service)
-        tab_widget.addTab(expense_tab, "Expenses")
-        
+        self.expense_tab = ExpenseTab(self.personal_finance_service)
+        tab_widget.addTab(self.expense_tab, "Expenses")
+
         # Add budget tab
-        budget_tab = BudgetTab(self.personal_finance_service)
-        tab_widget.addTab(budget_tab, "Budgets")
-        
+        self.budget_tab = BudgetTab(self.personal_finance_service)
+        tab_widget.addTab(self.budget_tab, "Budgets")
+
         # Add goals tab
-        goals_tab = GoalsTab(self.personal_finance_service)
-        tab_widget.addTab(goals_tab, "Goals")
-        
+        self.goals_tab = GoalsTab(self.personal_finance_service)
+        tab_widget.addTab(self.goals_tab, "Goals")
+
         # Add summary tab
-        summary_tab = SummaryTab(self.personal_finance_service)
-        tab_widget.addTab(summary_tab, "Summary")
+        self.summary_tab = SummaryTab(self.personal_finance_service)
+        tab_widget.addTab(self.summary_tab, "Summary")
 
         # Add ledger tab
-        ledger_tab = LedgerTab(self.personal_finance_service, self.portfolio_service)
-        tab_widget.addTab(ledger_tab, "Ledger")
+        self.ledger_tab = LedgerTab(self.personal_finance_service, self.portfolio_service)
+        tab_widget.addTab(self.ledger_tab, "Ledger")
+
+        # Refresh data when switching sub-tabs so changes made in one
+        # tab (new categories, records, budgets) show up in the others
+        tab_widget.currentChanged.connect(self._refresh_categories)
 
         layout.addWidget(tab_widget)
     
     def load_data(self):
         """Load initial data."""
         pass
+
+    def _refresh_categories(self, index=None):
+        """Reload data so changes made in one sub-tab appear in the others."""
+        refreshers = [
+            self.income_tab.load_categories,
+            self.expense_tab.load_categories,
+            self.budget_tab.load_categories,
+            self.income_tab.load_income_data,
+            self.expense_tab.load_expense_data,
+            self.budget_tab.load_budget_data,
+            self.goals_tab.load_goals_data,
+            self.summary_tab.update_summary,
+        ]
+        for refresh in refreshers:
+            try:
+                refresh()
+            except Exception as e:
+                print(f"Personal finance refresh error: {e}")
 
 class IncomeTab(QWidget):
     """Tab for income tracking."""
@@ -225,9 +315,15 @@ class IncomeTab(QWidget):
         # Category
         category_label = QLabel("Category:")
         self.category_combo = QComboBox()
+        category_layout = QHBoxLayout()
+        category_layout.addWidget(self.category_combo, 1)
+        new_category_button = QPushButton("+ New")
+        new_category_button.setToolTip("Create a new income category")
+        new_category_button.clicked.connect(self.add_category)
+        category_layout.addWidget(new_category_button)
         form_layout.addWidget(category_label, 0, 0)
-        form_layout.addWidget(self.category_combo, 0, 1)
-        
+        form_layout.addLayout(category_layout, 0, 1)
+
         # Amount
         amount_label = QLabel("Amount:")
         self.amount_input = QLineEdit()
@@ -279,7 +375,26 @@ class IncomeTab(QWidget):
         self.category_combo.clear()
         for category in categories:
             self.category_combo.addItem(category.name, category.id)
-    
+
+    def add_category(self):
+        """Create a new income category."""
+        dialog = CategoryDialog(self, title="New Income Category")
+        if dialog.exec() == QDialog.Accepted:
+            name, description, _ = dialog.get_values()
+            try:
+                category = self.personal_finance_service.create_income_category(
+                    name=name, description=description
+                )
+                self.load_categories()
+                index = self.category_combo.findData(category.id)
+                if index >= 0:
+                    self.category_combo.setCurrentIndex(index)
+            except Exception as e:
+                if "UNIQUE constraint" in str(e):
+                    QMessageBox.warning(self, "Error", f"A category named '{name}' already exists.")
+                else:
+                    QMessageBox.critical(self, "Error", f"Failed to create category: {str(e)}")
+
     def load_income_data(self):
         """Load income data into table."""
         incomes = self.personal_finance_service.get_incomes()
@@ -294,9 +409,13 @@ class IncomeTab(QWidget):
     
     def add_income(self):
         """Add a new income record."""
+        category_id = self.category_combo.currentData()
+        if category_id is None:
+            QMessageBox.warning(self, "Error",
+                                "Please create an income category first (+ New).")
+            return
         try:
             amount = float(self.amount_input.text())
-            category_id = self.category_combo.currentData()
             description = self.description_input.text()
             date = self.date_input.date().toPython()
             is_recurring = self.recurring_checkbox.isChecked()
@@ -342,8 +461,14 @@ class ExpenseTab(QWidget):
         # Category
         category_label = QLabel("Category:")
         self.expense_category_combo = QComboBox()
+        category_layout = QHBoxLayout()
+        category_layout.addWidget(self.expense_category_combo, 1)
+        new_category_button = QPushButton("+ New")
+        new_category_button.setToolTip("Create a new expense category")
+        new_category_button.clicked.connect(self.add_category)
+        category_layout.addWidget(new_category_button)
         form_layout.addWidget(category_label, 0, 0)
-        form_layout.addWidget(self.expense_category_combo, 0, 1)
+        form_layout.addLayout(category_layout, 0, 1)
         
         # Amount
         amount_label = QLabel("Amount:")
@@ -396,7 +521,26 @@ class ExpenseTab(QWidget):
         self.expense_category_combo.clear()
         for category in categories:
             self.expense_category_combo.addItem(category.name, category.id)
-    
+
+    def add_category(self):
+        """Create a new expense category."""
+        dialog = CategoryDialog(self, title="New Expense Category", include_budget=True)
+        if dialog.exec() == QDialog.Accepted:
+            name, description, budget_limit = dialog.get_values()
+            try:
+                category = self.personal_finance_service.create_expense_category(
+                    name=name, description=description, budget_limit=budget_limit
+                )
+                self.load_categories()
+                index = self.expense_category_combo.findData(category.id)
+                if index >= 0:
+                    self.expense_category_combo.setCurrentIndex(index)
+            except Exception as e:
+                if "UNIQUE constraint" in str(e):
+                    QMessageBox.warning(self, "Error", f"A category named '{name}' already exists.")
+                else:
+                    QMessageBox.critical(self, "Error", f"Failed to create category: {str(e)}")
+
     def load_expense_data(self):
         """Load expense data into table."""
         expenses = self.personal_finance_service.get_expenses()
@@ -411,9 +555,13 @@ class ExpenseTab(QWidget):
     
     def add_expense(self):
         """Add a new expense record."""
+        category_id = self.expense_category_combo.currentData()
+        if category_id is None:
+            QMessageBox.warning(self, "Error",
+                                "Please create an expense category first (+ New).")
+            return
         try:
             amount = float(self.expense_amount_input.text())
-            category_id = self.expense_category_combo.currentData()
             description = self.expense_description_input.text()
             date = self.expense_date_input.date().toPython()
             is_recurring = self.expense_recurring_checkbox.isChecked()
@@ -459,8 +607,14 @@ class BudgetTab(QWidget):
         # Category
         category_label = QLabel("Category:")
         self.budget_category_combo = QComboBox()
+        category_layout = QHBoxLayout()
+        category_layout.addWidget(self.budget_category_combo, 1)
+        new_category_button = QPushButton("+ New")
+        new_category_button.setToolTip("Create a new expense category")
+        new_category_button.clicked.connect(self.add_category)
+        category_layout.addWidget(new_category_button)
         form_layout.addWidget(category_label, 0, 0)
-        form_layout.addWidget(self.budget_category_combo, 0, 1)
+        form_layout.addLayout(category_layout, 0, 1)
         
         # Month
         month_label = QLabel("Month:")
@@ -512,27 +666,75 @@ class BudgetTab(QWidget):
         self.budget_category_combo.clear()
         for category in categories:
             self.budget_category_combo.addItem(category.name, category.id)
-    
+
+    def add_category(self):
+        """Create a new expense category."""
+        dialog = CategoryDialog(self, title="New Expense Category", include_budget=True)
+        if dialog.exec() == QDialog.Accepted:
+            name, description, budget_limit = dialog.get_values()
+            try:
+                category = self.personal_finance_service.create_expense_category(
+                    name=name, description=description, budget_limit=budget_limit
+                )
+                self.load_categories()
+                index = self.budget_category_combo.findData(category.id)
+                if index >= 0:
+                    self.budget_category_combo.setCurrentIndex(index)
+            except Exception as e:
+                if "UNIQUE constraint" in str(e):
+                    QMessageBox.warning(self, "Error", f"A category named '{name}' already exists.")
+                else:
+                    QMessageBox.critical(self, "Error", f"Failed to create category: {str(e)}")
+
     def load_budget_data(self):
         """Load budget data into table."""
         budgets = self.personal_finance_service.get_budgets()
+        categories = self.personal_finance_service.get_expense_categories()
+        category_names = {c.id: c.name for c in categories}
         self.budget_table.setRowCount(len(budgets))
-        
+
+        from PySide6.QtGui import QColor as _QC
         for i, budget in enumerate(budgets):
-            category = self.personal_finance_service.get_expense_categories()
-            category_name = next((c.name for c in category if c.id == budget.category_id), "Unknown")
+            category_name = category_names.get(budget.category_id, "Unknown")
             self.budget_table.setItem(i, 0, QTableWidgetItem(category_name))
             self.budget_table.setItem(i, 1, QTableWidgetItem(budget.month))
             self.budget_table.setItem(i, 2, QTableWidgetItem(f"${budget.budget_limit:.2f}"))
-            
-            # Calculate status (simplified - in real app would compare with actual expenses)
-            status = "Under Budget"  # Simplified
-            self.budget_table.setItem(i, 3, QTableWidgetItem(status))
+
+            # Compare against actual expenses for that category and month
+            status = "No Data"
+            color = "#7488B8"
+            try:
+                year, month_num = (int(p) for p in budget.month.split("-"))
+                month_start = datetime(year, month_num, 1)
+                month_end = (datetime(year + 1, 1, 1) if month_num == 12
+                             else datetime(year, month_num + 1, 1))
+                expenses = self.personal_finance_service.get_expenses(
+                    start_date=month_start, end_date=month_end
+                )
+                spent = sum(e.amount for e in expenses
+                            if e.category_id == budget.category_id
+                            and e.date < month_end)
+                if spent > budget.budget_limit:
+                    status = f"Over Budget (${spent:,.2f} spent)"
+                    color = "#FF5068"
+                else:
+                    status = f"Under Budget (${spent:,.2f} spent)"
+                    color = "#38D88A"
+            except Exception as e:
+                print(f"Budget status error: {e}")
+
+            status_item = QTableWidgetItem(status)
+            status_item.setForeground(_QC(color))
+            self.budget_table.setItem(i, 3, status_item)
     
     def set_budget(self):
         """Set a budget for an expense category."""
+        category_id = self.budget_category_combo.currentData()
+        if category_id is None:
+            QMessageBox.warning(self, "Error",
+                                "Please create an expense category first (+ New).")
+            return
         try:
-            category_id = self.budget_category_combo.currentData()
             month = self.month_input.currentText()
             year = self.year_input.currentText()
             budget_limit = float(self.budget_limit_input.text())
@@ -565,6 +767,7 @@ class GoalsTab(QWidget):
         """Initialize the goals tab."""
         super().__init__()
         self.personal_finance_service = personal_finance_service
+        self._goals = []
         self.setup_ui()
         self.load_goals_data()
     
@@ -619,12 +822,42 @@ class GoalsTab(QWidget):
         self.goals_table.setShowGrid(False)
         self.goals_table.verticalHeader().setVisible(False)
         layout.addWidget(self.goals_table)
-    
+
+        # Update progress button
+        button_row = QHBoxLayout()
+        button_row.addStretch()
+        update_button = QPushButton("Update Progress")
+        update_button.setToolTip("Set the current saved amount for the selected goal")
+        update_button.clicked.connect(self.update_goal_progress)
+        button_row.addWidget(update_button)
+        layout.addLayout(button_row)
+
+    def update_goal_progress(self):
+        """Update the current amount for the selected goal."""
+        row = self.goals_table.currentRow()
+        if row < 0 or row >= len(self._goals):
+            QMessageBox.warning(self, "Error", "Please select a goal in the table first.")
+            return
+        goal = self._goals[row]
+        amount, ok = QInputDialog.getDouble(
+            self, "Update Progress",
+            f"Current amount saved for '{goal.title}'\n(target ${goal.target_amount:,.2f}):",
+            goal.current_amount, 0, 999_999_999, 2
+        )
+        if not ok:
+            return
+        try:
+            self.personal_finance_service.update_financial_goal_amount(goal.id, amount)
+            self.load_goals_data()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to update goal: {str(e)}")
+
     def load_goals_data(self):
         """Load goals data into table."""
         goals = self.personal_finance_service.get_financial_goals()
+        self._goals = goals
         self.goals_table.setRowCount(len(goals))
-        
+
         for i, goal in enumerate(goals):
             self.goals_table.setItem(i, 0, QTableWidgetItem(goal.title))
             self.goals_table.setItem(i, 1, QTableWidgetItem(f"${goal.target_amount:.2f}"))
@@ -638,8 +871,11 @@ class GoalsTab(QWidget):
     
     def add_goal(self):
         """Add a new financial goal."""
+        title = self.title_input.text().strip()
+        if not title:
+            QMessageBox.warning(self, "Error", "Please enter a goal title.")
+            return
         try:
-            title = self.title_input.text()
             description = self.description_input.text()
             target_amount = float(self.amount_input.text())
             deadline = self.deadline_input.date().toPython()
@@ -712,14 +948,22 @@ class SummaryTab(QWidget):
         self.update_summary()
     
     def update_summary(self):
-        """Update the summary information."""
-        # In a real implementation, this would fetch actual data from the service
-        # For now, just show placeholder information
+        """Update the summary information from actual data."""
         current_date = datetime.now()
         self.current_month_label.setText(current_date.strftime("%B %Y"))
-        self.income_label.setText("$2,500.00")
-        self.expenses_label.setText("$1,800.00")
-        self.net_label.setText("$700.00")
+        try:
+            summary = self.personal_finance_service.get_monthly_summary(
+                current_date.year, current_date.month
+            )
+            self.income_label.setText(f"${summary['income']:,.2f}")
+            self.expenses_label.setText(f"${summary['expenses']:,.2f}")
+            net = summary['net']
+            self.net_label.setText(f"${net:,.2f}")
+            self.net_label.setStyleSheet(
+                f"color: {'#38D88A' if net >= 0 else '#FF5068'}; font-weight: 600;"
+            )
+        except Exception as e:
+            print(f"Summary update error: {e}")
 
 
 class LedgerTab(QWidget):

@@ -5,7 +5,7 @@ a = Analysis(
     ['portfolio_manager\\main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('portfolio_manager/PortM.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
