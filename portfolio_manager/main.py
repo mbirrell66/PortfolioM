@@ -15,6 +15,7 @@ if project_root not in sys.path:
 from PySide6.QtWidgets import QApplication, QSplashScreen
 from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import Qt, QTimer
+from _version import __version__
 from gui.main_window import MainWindow
 from services.portfolio_service import PortfolioService
 from services.personal_finance_service import PersonalFinanceService
@@ -70,7 +71,7 @@ def main():
     app.setStyleSheet(_APP_STYLE)
 
     app.setApplicationName("Portfolio Manager")
-    app.setApplicationVersion("1.1.0")
+    app.setApplicationVersion(__version__)
 
     png = _icon_path()
 

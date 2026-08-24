@@ -13,8 +13,9 @@ installer/Output/
 # Local database (contains personal data)
 *.db
 
-# Exclude installer package because it is huge
-installer/
+# Installer build output is huge (see installer/Output/ above), but the .iss
+# script itself is the release recipe and must stay tracked.
+
 # Stale build output kept for reference
 build.old/
 build1.old/

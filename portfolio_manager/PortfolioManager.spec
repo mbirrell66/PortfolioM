@@ -7,8 +7,15 @@ a = Analysis(
     ['main.py'],
     pathex=['.'],
     binaries=[],
-    datas=[('PortM.png', '.')],
+    datas=[
+        ('PortM.png', '.'),
+        # Ship the default settings file. Without it the frozen app has no
+        # config/settings.json to read on first launch.
+        ('config/settings.json', 'config'),
+    ],
     hiddenimports=[
+        # Version string (single source of truth, imported by main.py)
+        '_version',
         # PySide6 core
         'PySide6.QtWidgets',
         'PySide6.QtGui',
@@ -67,7 +74,13 @@ a = Analysis(
         'gui.edit_watchlist_dialog',
         'database.watchlist_models',
         'services.watchlist_service',
-        'config.config_manager',
+        # Options tracking
+        'gui.options_tab',
+        'gui.add_option_dialog',
+        'database.options_models',
+        'services.options_service',
+        # Tools
+        'gui.position_size_calculator',
     ],
     hookspath=[],
     hooksconfig={},
