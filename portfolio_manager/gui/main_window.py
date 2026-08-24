@@ -2,7 +2,7 @@
 Main window for Portfolio Manager GUI
 """
 
-from PySide6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QTableView,
+from PySide6.QtWidgets import (QMainWindow, QTabWidget, QTableView,
                                QSplitter, QVBoxLayout, QWidget, QPushButton,
                                QHBoxLayout, QMenuBar, QMenu, QStatusBar,
                                QMessageBox, QFileDialog, QLabel)
@@ -584,11 +584,5 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.Yes:
             # For now, just show a message - will implement reset logic
             # in later milestone
-            QMessageBox.information(self, "Reset Application", 
+            QMessageBox.information(self, "Reset Application",
                                   "Reset functionality will be implemented in a later milestone.")
-
-if __name__ == "__main__":
-    app = QApplication([])
-    window = MainWindow()
-    window.show()
-    app.exec()
