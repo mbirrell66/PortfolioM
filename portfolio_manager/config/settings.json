@@ -1,6 +1,6 @@
 {
     "app_name": "Portfolio Manager",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "database_path": "data/portfolio.db",
     "log_level": "INFO",
     "refresh_interval": 60,

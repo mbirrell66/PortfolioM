@@ -70,7 +70,7 @@ def main():
     app.setStyleSheet(_APP_STYLE)
 
     app.setApplicationName("Portfolio Manager")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion("1.1.0")
 
     png = _icon_path()
 

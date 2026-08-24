@@ -1,0 +1,17 @@
+# Runtime dependencies only — used by build_clean.ps1 to create a minimal
+# build venv so PyInstaller doesn't bundle unrelated global packages.
+# (Dev/test tools live in portfolio_manager/requirements.txt)
+
+PySide6>=6.5.0
+SQLAlchemy>=2.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+pyqtgraph>=0.13.0
+yfinance>=0.2.18
+requests>=2.28.0
+feedparser>=6.0.0
+python-dateutil>=2.8.0
+
+# Build tool
+pyinstaller>=6.0.0

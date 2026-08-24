@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="portfolio-manager",
-    version="1.0.0",
+    version="1.1.0",
     author="Portfolio Manager Team",
     author_email="portfolio@example.com",
     description="A desktop application for managing investment portfolios",

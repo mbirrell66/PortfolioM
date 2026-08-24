@@ -301,6 +301,7 @@ class IncomeTab(QWidget):
         """Initialize the income tab."""
         super().__init__()
         self.personal_finance_service = personal_finance_service
+        self._incomes = []
         self.setup_ui()
         self.load_income_data()
     
@@ -365,9 +366,41 @@ class IncomeTab(QWidget):
         self.income_table.setShowGrid(False)
         self.income_table.verticalHeader().setVisible(False)
         layout.addWidget(self.income_table)
-        
+
+        # Delete button
+        button_row = QHBoxLayout()
+        button_row.addStretch()
+        delete_button = QPushButton("Delete Selected")
+        delete_button.setToolTip("Delete the selected income record")
+        delete_button.clicked.connect(self.delete_income)
+        button_row.addWidget(delete_button)
+        layout.addLayout(button_row)
+
         # Load categories
         self.load_categories()
+
+    def delete_income(self):
+        """Delete the selected income record."""
+        row = self.income_table.currentRow()
+        if row < 0 or row >= len(self._incomes):
+            QMessageBox.warning(self, "Error", "Please select an income record first.")
+            return
+        income = self._incomes[row]
+        msg = (f"Delete this income record?\n\n"
+               f"{income.date.strftime('%Y-%m-%d')} — "
+               f"${income.amount:,.2f} ({income.description or 'no description'})")
+        if income.is_recurring:
+            msg += ("\n\nThis is a recurring template: future occurrences will stop, "
+                    "but already-posted occurrences will be kept.")
+        reply = QMessageBox.question(self, "Delete Income", msg,
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            self.personal_finance_service.delete_income(income.id)
+            self.load_income_data()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to delete income: {str(e)}")
     
     def load_categories(self):
         """Load income categories into combo box."""
@@ -398,6 +431,7 @@ class IncomeTab(QWidget):
     def load_income_data(self):
         """Load income data into table."""
         incomes = self.personal_finance_service.get_incomes()
+        self._incomes = incomes
         self.income_table.setRowCount(len(incomes))
         
         for i, income in enumerate(incomes):
@@ -447,6 +481,7 @@ class ExpenseTab(QWidget):
         """Initialize the expense tab."""
         super().__init__()
         self.personal_finance_service = personal_finance_service
+        self._expenses = []
         self.setup_ui()
         self.load_expense_data()
     
@@ -511,9 +546,41 @@ class ExpenseTab(QWidget):
         self.expense_table.setShowGrid(False)
         self.expense_table.verticalHeader().setVisible(False)
         layout.addWidget(self.expense_table)
-        
+
+        # Delete button
+        button_row = QHBoxLayout()
+        button_row.addStretch()
+        delete_button = QPushButton("Delete Selected")
+        delete_button.setToolTip("Delete the selected expense record")
+        delete_button.clicked.connect(self.delete_expense)
+        button_row.addWidget(delete_button)
+        layout.addLayout(button_row)
+
         # Load categories
         self.load_categories()
+
+    def delete_expense(self):
+        """Delete the selected expense record."""
+        row = self.expense_table.currentRow()
+        if row < 0 or row >= len(self._expenses):
+            QMessageBox.warning(self, "Error", "Please select an expense record first.")
+            return
+        expense = self._expenses[row]
+        msg = (f"Delete this expense record?\n\n"
+               f"{expense.date.strftime('%Y-%m-%d')} — "
+               f"${expense.amount:,.2f} ({expense.description or 'no description'})")
+        if expense.is_recurring:
+            msg += ("\n\nThis is a recurring template: future occurrences will stop, "
+                    "but already-posted occurrences will be kept.")
+        reply = QMessageBox.question(self, "Delete Expense", msg,
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            self.personal_finance_service.delete_expense(expense.id)
+            self.load_expense_data()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to delete expense: {str(e)}")
     
     def load_categories(self):
         """Load expense categories into combo box."""
@@ -544,6 +611,7 @@ class ExpenseTab(QWidget):
     def load_expense_data(self):
         """Load expense data into table."""
         expenses = self.personal_finance_service.get_expenses()
+        self._expenses = expenses
         self.expense_table.setRowCount(len(expenses))
         
         for i, expense in enumerate(expenses):
@@ -593,6 +661,7 @@ class BudgetTab(QWidget):
         """Initialize the budget tab."""
         super().__init__()
         self.personal_finance_service = personal_finance_service
+        self._budgets = []
         self.setup_ui()
         self.load_budget_data()
     
@@ -656,9 +725,40 @@ class BudgetTab(QWidget):
         self.budget_table.setShowGrid(False)
         self.budget_table.verticalHeader().setVisible(False)
         layout.addWidget(self.budget_table)
-        
+
+        # Delete button
+        button_row = QHBoxLayout()
+        button_row.addStretch()
+        delete_button = QPushButton("Delete Selected")
+        delete_button.setToolTip("Delete the selected budget")
+        delete_button.clicked.connect(self.delete_budget)
+        button_row.addWidget(delete_button)
+        layout.addLayout(button_row)
+
         # Load categories
         self.load_categories()
+
+    def delete_budget(self):
+        """Delete the selected budget."""
+        row = self.budget_table.currentRow()
+        if row < 0 or row >= len(self._budgets):
+            QMessageBox.warning(self, "Error", "Please select a budget first.")
+            return
+        budget = self._budgets[row]
+        category_item = self.budget_table.item(row, 0)
+        category_name = category_item.text() if category_item else "Unknown"
+        reply = QMessageBox.question(
+            self, "Delete Budget",
+            f"Delete the {budget.month} budget for '{category_name}' "
+            f"(${budget.budget_limit:,.2f})?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            self.personal_finance_service.delete_budget(budget.id)
+            self.load_budget_data()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to delete budget: {str(e)}")
     
     def load_categories(self):
         """Load expense categories into combo box."""
@@ -689,6 +789,7 @@ class BudgetTab(QWidget):
     def load_budget_data(self):
         """Load budget data into table."""
         budgets = self.personal_finance_service.get_budgets()
+        self._budgets = budgets
         categories = self.personal_finance_service.get_expense_categories()
         category_names = {c.id: c.name for c in categories}
         self.budget_table.setRowCount(len(budgets))
@@ -823,14 +924,38 @@ class GoalsTab(QWidget):
         self.goals_table.verticalHeader().setVisible(False)
         layout.addWidget(self.goals_table)
 
-        # Update progress button
+        # Update progress / delete buttons
         button_row = QHBoxLayout()
         button_row.addStretch()
         update_button = QPushButton("Update Progress")
         update_button.setToolTip("Set the current saved amount for the selected goal")
         update_button.clicked.connect(self.update_goal_progress)
         button_row.addWidget(update_button)
+        delete_button = QPushButton("Delete Selected")
+        delete_button.setToolTip("Delete the selected goal")
+        delete_button.clicked.connect(self.delete_goal)
+        button_row.addWidget(delete_button)
         layout.addLayout(button_row)
+
+    def delete_goal(self):
+        """Delete the selected goal."""
+        row = self.goals_table.currentRow()
+        if row < 0 or row >= len(self._goals):
+            QMessageBox.warning(self, "Error", "Please select a goal in the table first.")
+            return
+        goal = self._goals[row]
+        reply = QMessageBox.question(
+            self, "Delete Goal",
+            f"Delete the goal '{goal.title}' "
+            f"(${goal.current_amount:,.2f} of ${goal.target_amount:,.2f} saved)?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            self.personal_finance_service.delete_financial_goal(goal.id)
+            self.load_goals_data()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to delete goal: {str(e)}")
 
     def update_goal_progress(self):
         """Update the current amount for the selected goal."""

@@ -6,6 +6,7 @@ __pycache__/
 # Build / packaging output
 build/
 dist/
+.venv-build/
 *.exe
 installer/Output/
 
@@ -14,3 +15,6 @@ installer/Output/
 
 # Exclude installer package because it is huge
 installer/
+# Stale build output kept for reference
+build.old/
+build1.old/

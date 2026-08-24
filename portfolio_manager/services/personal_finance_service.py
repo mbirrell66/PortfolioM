@@ -214,7 +214,41 @@ class PersonalFinanceService:
         finally:
             db.close()
     
-    def create_financial_goal(self, title: str, description: str, target_amount: float, 
+    def _delete_record(self, model, record_id: int) -> bool:
+        """Delete a record by id. Returns True if it existed."""
+        db = next(self.get_db())
+        try:
+            record = db.query(model).filter(model.id == record_id).first()
+            if not record:
+                return False
+            db.delete(record)
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    def delete_income(self, income_id: int) -> bool:
+        """Delete an income record. If it is a recurring template, future
+        occurrences stop; already-posted occurrences are kept."""
+        return self._delete_record(Income, income_id)
+
+    def delete_expense(self, expense_id: int) -> bool:
+        """Delete an expense record. If it is a recurring template, future
+        occurrences stop; already-posted occurrences are kept."""
+        return self._delete_record(Expense, expense_id)
+
+    def delete_budget(self, budget_id: int) -> bool:
+        """Delete a monthly budget."""
+        return self._delete_record(Budget, budget_id)
+
+    def delete_financial_goal(self, goal_id: int) -> bool:
+        """Delete a financial goal."""
+        return self._delete_record(FinancialGoal, goal_id)
+
+    def create_financial_goal(self, title: str, description: str, target_amount: float,
                              deadline: datetime = None) -> FinancialGoal:
         """Create a new financial goal."""
         db = next(self.get_db())
