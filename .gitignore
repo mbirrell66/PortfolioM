@@ -19,3 +19,9 @@ installer/Output/
 # Stale build output kept for reference
 build.old/
 build1.old/
+# Parked for removal
+_to_delete/
+
+# Runtime data and logs
+portfolio_manager/data/
+*.log

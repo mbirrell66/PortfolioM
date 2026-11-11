@@ -431,4 +431,4 @@ class BenchmarkComparisonTab(QWidget):
             self.chart_widget.setTitle(f"Portfolio vs Benchmark - CAGR Comparison")
             
         except Exception as e:
-                       print(f"Error updating chart: {e}")
+                       logger.exception(f"Error updating chart: {e}")

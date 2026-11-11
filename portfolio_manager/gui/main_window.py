@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (QMainWindow, QTabWidget, QTableView,
                                QHBoxLayout, QMenuBar, QMenu, QStatusBar,
                                QMessageBox, QFileDialog, QLabel)
 from PySide6.QtGui import QAction, QLinearGradient, QColor, QPalette
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QThread, Signal
 from gui.icons import get_icon
 import sys
 import os
@@ -40,6 +40,30 @@ from gui.add_position_dialog import AddPositionDialog
 from database.database import init_database
 from services.portfolio_service import PortfolioService
 from services.personal_finance_service import PersonalFinanceService
+
+import logging
+logger = logging.getLogger(__name__)
+
+class PriceRefreshWorker(QThread):
+    """Fetches prices off the GUI thread so the window stays responsive."""
+
+    done = Signal(list)  # tickers that came back with no price
+
+    def __init__(self, market_data_service, tickers, parent=None):
+        super().__init__(parent)
+        self._market_data = market_data_service
+        self._tickers = list(tickers)
+
+    def run(self):
+        try:
+            data = self._market_data.refresh(self._tickers)
+            failed = [t for t in self._tickers if t not in data]
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Price refresh failed")
+            failed = list(self._tickers)
+        self.done.emit(failed)
+
 
 class MainWindow(QMainWindow):
     """Main application window."""
@@ -334,7 +358,7 @@ class MainWindow(QMainWindow):
             benchmark_tab = BenchmarkComparisonTab(self.portfolio_service, MarketDataService())
             tab_widget.addTab(benchmark_tab, get_icon("BENCHMARK"), "Benchmark")
         except Exception as e:
-            print(f"Error creating benchmark tab: {e}")
+            logger.exception(f"Error creating benchmark tab: {e}")
             placeholder_tab = QWidget()
             placeholder_layout = QVBoxLayout(placeholder_tab)
             placeholder_layout.addWidget(QLabel("Benchmark tab failed to initialize"))
@@ -532,22 +556,47 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def refresh_prices(self):
-        """Refresh all stock prices."""
+        """Fetch fresh prices in the background, then reload the table."""
+        worker = getattr(self, "_price_worker", None)
+        if worker is not None and worker.isRunning():
+            return  # a refresh is already under way
         try:
-            # Get all positions
-            positions = self.portfolio_service.get_positions()
-            if not positions:
+            if not self.portfolio_service.get_positions():
                 QMessageBox.information(self, "Refresh Prices", "No positions to refresh.")
                 return
-                
-            # Refresh the table data (which will fetch current prices)
-            self.portfolio_table.load_data()
-            QMessageBox.information(self, "Refresh Prices", 
-                                  "Prices refreshed successfully.")
+            tickers = sorted({p.ticker for p in self.portfolio_service.get_open_positions()})
         except Exception as e:
-            QMessageBox.critical(self, "Refresh Prices", 
+            QMessageBox.critical(self, "Refresh Prices",
                                f"Error refreshing prices: {str(e)}")
-    
+            return
+
+        self._price_worker = PriceRefreshWorker(
+            self.portfolio_service.market_data_service, tickers, self)
+        self._price_worker.done.connect(self._on_prices_refreshed)
+        self.statusBar().showMessage("Refreshing prices...")
+        self._price_worker.start()
+
+    def _on_prices_refreshed(self, failed):
+        """Runs on the GUI thread once the worker has finished."""
+        try:
+            self.portfolio_table.load_data()
+        except Exception as e:
+            QMessageBox.critical(self, "Refresh Prices",
+                               f"Error refreshing prices: {str(e)}")
+            return
+        if failed:
+            self.statusBar().showMessage(
+                "Prices refreshed. No price returned for: " + ", ".join(failed), 15000)
+        else:
+            self.statusBar().showMessage("Prices refreshed", 5000)
+
+    def closeEvent(self, event):
+        """Let a running price refresh finish before the window goes away."""
+        worker = getattr(self, "_price_worker", None)
+        if worker is not None and worker.isRunning():
+            worker.wait(15000)
+        super().closeEvent(event)
+
     def show_dividend_dialog(self):
         """Show dialog to add a new dividend payment."""
         dialog = DividendEntryDialog(self)

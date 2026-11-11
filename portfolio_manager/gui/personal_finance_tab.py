@@ -227,9 +227,9 @@ class PersonalFinanceTab(QWidget):
         try:
             posted = self.personal_finance_service.process_recurring_transactions()
             if posted:
-                print(f"Posted {posted} recurring transaction(s)")
+                logger.info(f"Posted {posted} recurring transaction(s)")
         except Exception as e:
-            print(f"Recurring transaction processing error: {e}")
+            logger.exception(f"Recurring transaction processing error: {e}")
 
         self.setup_ui()
         self.load_data()
@@ -292,7 +292,7 @@ class PersonalFinanceTab(QWidget):
             try:
                 refresh()
             except Exception as e:
-                print(f"Personal finance refresh error: {e}")
+                logger.exception(f"Personal finance refresh error: {e}")
 
 class IncomeTab(QWidget):
     """Tab for income tracking."""
@@ -822,7 +822,7 @@ class BudgetTab(QWidget):
                     status = f"Under Budget (${spent:,.2f} spent)"
                     color = "#38D88A"
             except Exception as e:
-                print(f"Budget status error: {e}")
+                logger.exception(f"Budget status error: {e}")
 
             status_item = QTableWidgetItem(status)
             status_item.setForeground(_QC(color))
@@ -1088,7 +1088,7 @@ class SummaryTab(QWidget):
                 f"color: {'#38D88A' if net >= 0 else '#FF5068'}; font-weight: 600;"
             )
         except Exception as e:
-            print(f"Summary update error: {e}")
+            logger.exception(f"Summary update error: {e}")
 
 
 class LedgerTab(QWidget):
@@ -1192,7 +1192,7 @@ class LedgerTab(QWidget):
                         rows.append((pos.sell_date, "Sell", sdesc,
                                      0.0, proceeds, "", None))
             except Exception as e:
-                print(f"Ledger positions error: {e}")
+                logger.exception(f"Ledger positions error: {e}")
 
             # --- dividends ---
             try:
@@ -1207,7 +1207,7 @@ class LedgerTab(QWidget):
                 finally:
                     db.close()
             except Exception as e:
-                print(f"Ledger dividends error: {e}")
+                logger.exception(f"Ledger dividends error: {e}")
 
         # --- income / expenses ---
         try:
@@ -1230,7 +1230,7 @@ class LedgerTab(QWidget):
             finally:
                 db.close()
         except Exception as e:
-            print(f"Ledger income/expense error: {e}")
+            logger.exception(f"Ledger income/expense error: {e}")
 
         # --- manual deposits / withdrawals ---
         _CREDIT_TYPES = {"Deposit", "Option Premium"}
@@ -1256,7 +1256,7 @@ class LedgerTab(QWidget):
             finally:
                 db.close()
         except Exception as e:
-            print(f"Ledger transactions error: {e}")
+            logger.exception(f"Ledger transactions error: {e}")
 
         # Sort chronologically
         import datetime as _dt
@@ -1425,6 +1425,9 @@ from PySide6.QtWidgets import (QDialog as _QD, QVBoxLayout as _QVL,
                                 QDateEdit as _QDE, QTextEdit as _QTE,
                                 QDialogButtonBox as _QDBB, QGroupBox as _QGB)
 from PySide6.QtCore import QDate as _QDA
+
+import logging
+logger = logging.getLogger(__name__)
 
 class _LedgerTransactionDialog(_QD):
     """Small dialog to enter a deposit or withdrawal."""

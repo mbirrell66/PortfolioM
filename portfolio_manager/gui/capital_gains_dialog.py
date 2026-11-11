@@ -2,6 +2,7 @@
 Capital Gains Dialog
 Dialog for creating and editing capital gains events.
 """
+from PySide6.QtWidgets import QMessageBox
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QFormLayout, QLabel, QLineEdit, QDateEdit, 
                              QComboBox, QCheckBox, QGroupBox)
@@ -141,4 +142,4 @@ class CapitalGainsDialog(QDialog):
             self.accept()
         except Exception as e:
             # Show error dialog
-            print(f"Error saving capital gains event: {e}")
+            QMessageBox.warning(self, "Capital Gains Event", f"Could not save: {e}")

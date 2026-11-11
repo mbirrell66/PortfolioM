@@ -298,6 +298,7 @@ class PortfolioService:
     def get_portfolio_value(self) -> float:
         """Get total portfolio value (open positions only)."""
         positions = self.get_open_positions()
+        self.get_current_prices(positions)  # one concurrent fetch; fills the price cache
         total_value = 0
         for position in positions:
             current_price = self.get_current_price(position.ticker)
@@ -308,6 +309,7 @@ class PortfolioService:
     def get_total_gain_loss(self) -> float:
         """Get total gain/loss for open positions."""
         positions = self.get_open_positions()
+        self.get_current_prices(positions)  # one concurrent fetch; fills the price cache
         total_value = 0
         total_cost = 0
         for position in positions:
@@ -320,6 +322,7 @@ class PortfolioService:
     def get_total_gain_loss_percent(self) -> float:
         """Get total gain/loss percentage for open positions."""
         positions = self.get_open_positions()
+        self.get_current_prices(positions)  # one concurrent fetch; fills the price cache
         total_value = 0
         total_cost = 0
         for position in positions:

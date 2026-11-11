@@ -16,6 +16,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from services.portfolio_service import PortfolioService
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class PerformanceTab(QWidget):
     """Performance tab showing portfolio analytics."""
@@ -263,7 +266,7 @@ class PerformanceTab(QWidget):
             self.load_top_assets()
             
         except Exception as e:
-            print(f"Error loading performance data: {e}")
+            logger.exception(f"Error loading performance data: {e}")
     
     def load_top_assets(self):
         """Load top performing assets."""
@@ -311,4 +314,4 @@ class PerformanceTab(QWidget):
                 self.top_assets_table.setItem(i, 2, gain_loss_item)
                 
         except Exception as e:
-            print(f"Error loading top assets: {e}")
+            logger.exception(f"Error loading top assets: {e}")

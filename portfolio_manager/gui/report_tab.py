@@ -23,6 +23,9 @@ import json
 import csv
 from typing import Dict, List
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class ReportGenerator:
     """Generate various portfolio reports."""
@@ -74,11 +77,11 @@ class ReportGenerator:
             top_assets.sort(key=lambda x: x['gain_loss_percent'], reverse=True)
             
             # Debug print to see what we're getting
-            print(f"DEBUG: Positions count: {len(positions)}")
-            print(f"DEBUG: Total value: ${total_value:,.2f}")
-            print(f"DEBUG: Total cost: ${total_cost:,.2f}")
-            print(f"DEBUG: Gain/Loss: ${total_gain_loss:,.2f}")
-            print(f"DEBUG: Gain/Loss %: {total_gain_loss_percent:.2f}%")
+            logger.info(f"DEBUG: Positions count: {len(positions)}")
+            logger.info(f"DEBUG: Total value: ${total_value:,.2f}")
+            logger.info(f"DEBUG: Total cost: ${total_cost:,.2f}")
+            logger.info(f"DEBUG: Gain/Loss: ${total_gain_loss:,.2f}")
+            logger.info(f"DEBUG: Gain/Loss %: {total_gain_loss_percent:.2f}%")
             
             return {
                 'report_type': 'portfolio_summary',
@@ -98,7 +101,7 @@ class ReportGenerator:
                 'top_assets': top_assets[:5]  # Top 5 assets
             }
         except Exception as e:
-            print(f"Error in generate_portfolio_summary_report: {e}")
+            logger.exception(f"Error in generate_portfolio_summary_report: {e}")
             import traceback
             traceback.print_exc()
             # Return basic report even if some metrics fail
@@ -215,13 +218,13 @@ class ReportExportService:
                                 f"{asset.get('gain_loss_percent', 0):.2f}%"
                             ])
                         except Exception as e:
-                            print(f"Error writing asset to CSV: {e}")
+                            logger.exception(f"Error writing asset to CSV: {e}")
                             writer.writerow([f"Error in asset data: {e}", "", ""])
                 
                 return True
             return False
         except Exception as e:
-            print(f"Error exporting to CSV: {e}")
+            logger.exception(f"Error exporting to CSV: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -234,7 +237,7 @@ class ReportExportService:
                 json.dump(data, jsonfile, indent=2, default=str)
             return True
         except Exception as e:
-            print(f"Error exporting to JSON: {e}")
+            logger.exception(f"Error exporting to JSON: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -270,7 +273,7 @@ class ReportExportService:
                 
             return True
         except Exception as e:
-            print(f"Error exporting to text: {e}")
+            logger.exception(f"Error exporting to text: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -425,27 +428,27 @@ class ReportTab(QWidget):
     def generate_report(self):
         """Generate the selected report."""
         try:
-            print(f"Generating report for: {self.report_type_combo.currentText()}")
+            logger.info(f"Generating report for: {self.report_type_combo.currentText()}")
             report_type = self.report_type_combo.currentText()
             
             if report_type == "Portfolio Summary":
                 report_data = self.report_generator.generate_portfolio_summary_report()
-                print(f"Generated portfolio summary report with {len(report_data.get('positions', []))} positions")
+                logger.info(f"Generated portfolio summary report with {len(report_data.get('positions', []))} positions")
                 self.display_report(report_data)
             elif report_type == "Dividend Report":
                 report_data = self.report_generator.generate_dividend_report()
-                print(f"Generated dividend report with {len(report_data.get('dividends', []))} dividends")
+                logger.info(f"Generated dividend report with {len(report_data.get('dividends', []))} dividends")
                 self.display_dividend_report(report_data)
             elif report_type == "Stock Split Report":
                 report_data = self.report_generator.generate_split_report()
-                print(f"Generated split report with {len(report_data.get('splits', []))} splits")
+                logger.info(f"Generated split report with {len(report_data.get('splits', []))} splits")
                 self.display_split_report(report_data)
             
             # Save the current report data for export
             self.current_report_data = report_data
             
         except Exception as e:
-            print(f"Error in generate_report: {e}")
+            logger.exception(f"Error in generate_report: {e}")
             import traceback
             traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Failed to generate report: {str(e)}")
@@ -485,7 +488,7 @@ Top Performing Assets:
             
             self.report_text.setText(report_text)
         except Exception as e:
-            print(f"Error in display_report: {e}")
+            logger.exception(f"Error in display_report: {e}")
             import traceback
             traceback.print_exc()
             self.report_text.setText(f"Error displaying report: {e}")
@@ -514,7 +517,7 @@ Dividend Details:
             
             self.report_text.setText(report_text)
         except Exception as e:
-            print(f"Error in display_dividend_report: {e}")
+            logger.exception(f"Error in display_dividend_report: {e}")
             import traceback
             traceback.print_exc()
             self.report_text.setText(f"Error displaying dividend report: {e}")
@@ -542,7 +545,7 @@ Stock Split Details:
             
             self.report_text.setText(report_text)
         except Exception as e:
-            print(f"Error in display_split_report: {e}")
+            logger.exception(f"Error in display_split_report: {e}")
             import traceback
             traceback.print_exc()
             self.report_text.setText(f"Error displaying split report: {e}")
@@ -554,7 +557,7 @@ Stock Split Details:
             return
         
         try:
-            print(f"Exporting report to {format_type}")
+            logger.info(f"Exporting report to {format_type}")
             # Get save file path
             file_filter = {
                 'csv': "CSV Files (*.csv)",
@@ -583,10 +586,10 @@ Stock Split Details:
                 else:
                     QMessageBox.critical(self, "Export Failed", f"Failed to export report to {filename}")
             else:
-                print("No filename selected for export")
+                logger.info("No filename selected for export")
         
         except Exception as e:
-            print(f"Error in export_report: {e}")
+            logger.exception(f"Error in export_report: {e}")
             import traceback
             traceback.print_exc()
             QMessageBox.critical(self, "Export Error", f"Failed to export report: {str(e)}")

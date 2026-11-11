@@ -12,6 +12,10 @@ project_root = str(Path(__file__).parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# Set up the log file first so that import errors below are recorded too.
+from app_logging import setup_logging
+setup_logging()
+
 from PySide6.QtWidgets import QApplication, QSplashScreen
 from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import Qt, QTimer
@@ -67,6 +71,8 @@ def _icon_path() -> Path:
 
 def main():
     """Main application entry point."""
+    import logging
+    logging.getLogger(__name__).info("Portfolio Manager %s starting", __version__)
     app = QApplication(sys.argv)
     app.setStyleSheet(_APP_STYLE)
 

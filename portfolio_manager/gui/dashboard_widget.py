@@ -11,6 +11,9 @@ from services.portfolio_service import PortfolioService
 from datetime import datetime
 import pyqtgraph as pg
 
+import logging
+logger = logging.getLogger(__name__)
+
 class DashboardWidget(QWidget):
     """Dashboard widget with portfolio analytics and charts."""
     
@@ -240,7 +243,7 @@ class DashboardWidget(QWidget):
             self.update_performance_table(positions)
             
         except Exception as e:
-            print(f"Error loading dashboard data: {e}")
+            logger.exception(f"Error loading dashboard data: {e}")
     
     def update_chart(self, positions):
         """Update the portfolio distribution chart."""
@@ -289,7 +292,7 @@ class DashboardWidget(QWidget):
                 
         except Exception as e:
             import traceback
-            print(f"Error updating chart: {e}")
+            logger.error(f"Error updating chart: {e}")
             traceback.print_exc()
     
     def calculate_cagr(self, start_value, end_value, years):
@@ -361,5 +364,5 @@ class DashboardWidget(QWidget):
                 
         except Exception as e:
             import traceback
-            print(f"Error updating performance table: {e}")
+            logger.error(f"Error updating performance table: {e}")
             traceback.print_exc()

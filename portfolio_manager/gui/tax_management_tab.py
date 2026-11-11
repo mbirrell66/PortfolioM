@@ -20,7 +20,10 @@ if project_root not in sys.path:
 
 from gui.tax_event_dialog import TaxEventDialog
 from gui.capital_gains_dialog import CapitalGainsDialog
-from services.tax_service import TaxService
+from services.tax_service import TaxService, held_over_12_months
+
+import logging
+logger = logging.getLogger(__name__)
 
 class TaxManagementTab(QWidget):
     """Tax management tab for tracking tax events and reporting."""
@@ -369,7 +372,7 @@ class TaxManagementTab(QWidget):
         # Create table for existing events
         self.capital_gains_table = QTableWidget(0, 7)
         self.capital_gains_table.setHorizontalHeaderLabels([
-            "Asset Type", "Acquisition Date", "Disposal Date", "Gain", "Tax Rate", "Tax Liability", "Exempt"
+            "Asset Type", "Acquisition Date", "Disposal Date", "Gain / Loss", "CGT Discount", "Days Held", "Exempt"
         ])
         self.capital_gains_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         
@@ -499,8 +502,13 @@ class TaxManagementTab(QWidget):
             self.capital_gains_table.setItem(i, 1, QTableWidgetItem(event.acquisition_date.strftime("%d/%m/%Y")))
             self.capital_gains_table.setItem(i, 2, QTableWidgetItem(event.disposal_date.strftime("%d/%m/%Y")))
             self.capital_gains_table.setItem(i, 3, QTableWidgetItem(f"${event.capital_gain:.2f}"))
-            self.capital_gains_table.setItem(i, 4, QTableWidgetItem(f"{event.tax_rate}%"))
-            self.capital_gains_table.setItem(i, 5, QTableWidgetItem(f"${event.tax_liability:.2f}"))
+            # Worked out from the dates, not the stored tax_rate, so events
+            # recorded before the CGT fix also display correctly.
+            eligible = (not event.is_exempt and event.capital_gain > 0
+                        and held_over_12_months(event.acquisition_date, event.disposal_date))
+            days_held = (event.disposal_date - event.acquisition_date).days
+            self.capital_gains_table.setItem(i, 4, QTableWidgetItem("50%" if eligible else "-"))
+            self.capital_gains_table.setItem(i, 5, QTableWidgetItem(str(days_held)))
             self.capital_gains_table.setItem(i, 6, QTableWidgetItem("Yes" if event.is_exempt else "No"))
     
     def load_tax_returns(self):
@@ -546,7 +554,7 @@ class TaxManagementTab(QWidget):
             self.clear_tax_event_inputs()
         except Exception as e:
             # Show error dialog
-            print(f"Error adding tax event: {e}")
+            logger.error(f"Error adding tax event: {e}")
     
     def add_capital_gains_event(self):
         """Add a new capital gains event."""
@@ -576,7 +584,7 @@ class TaxManagementTab(QWidget):
             self.clear_capital_gains_inputs()
         except Exception as e:
             # Show error dialog
-            print(f"Error adding capital gains event: {e}")
+            logger.error(f"Error adding capital gains event: {e}")
     
     def create_tax_return(self):
         """Create a new tax return."""
@@ -593,7 +601,7 @@ class TaxManagementTab(QWidget):
             self.clear_tax_return_inputs()
         except Exception as e:
             # Show error dialog
-            print(f"Error creating tax return: {e}")
+            logger.error(f"Error creating tax return: {e}")
     
     def refresh_summary(self):
         """Refresh tax summary."""
@@ -605,11 +613,18 @@ class TaxManagementTab(QWidget):
             self.summary_label.setText(f"""
             Tax Summary ({start_date.strftime('%d/%m/%Y')} to {end_date.strftime('%d/%m/%Y')}):
             
-            Total Income Tax: ${summary['total_income_tax']:.2f}
-            Total Capital Gains Tax: ${summary['total_capital_gains_tax']:.2f}
-            Total Tax Liability: ${summary['total_tax_liability']:.2f}
+            Tax on recorded income events: ${summary['total_income_tax']:.2f}
             Tax Events: {summary['tax_events_count']}
+
             Capital Gains Events: {summary['capital_gains_count']}
+            Total capital gains: ${summary['total_capital_gains']:.2f}
+            Capital losses applied: ${summary['losses_applied']:.2f}
+            CGT discount (50%, held over 12 months): ${summary['cgt_discount']:.2f}
+            Net capital gain: ${summary['net_capital_gain']:.2f}
+            Losses carried forward: ${summary['losses_carried_forward']:.2f}
+
+            Net capital gain is added to assessable income and taxed at
+            your marginal rate. Prior-year losses are not included.
             """)
         except Exception as e:
             self.summary_label.setText(f"Error calculating summary: {e}")

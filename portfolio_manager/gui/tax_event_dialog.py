@@ -10,6 +10,9 @@ from datetime import date
 import sys
 import os
 
+import logging
+logger = logging.getLogger(__name__)
+
 # Add the project root to sys.path to ensure imports work correctly
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
@@ -150,4 +153,4 @@ class TaxEventDialog(QDialog):
             self.accept()
         except Exception as e:
             # Show error dialog
-            print(f"Error saving tax event: {e}")
+            logger.error(f"Error saving tax event: {e}")

@@ -13,6 +13,9 @@ from .tax_models import Base as TaxBase
 from .watchlist_models import WatchlistBase
 from .options_models import OptionsBase
 
+import logging
+logger = logging.getLogger(__name__)
+
 # Resolve data directory correctly whether running from source or as a
 # PyInstaller bundle.  When frozen, __file__ points inside _internal/ and
 # is not writable; use the directory containing the .exe instead.
@@ -76,7 +79,7 @@ def _migrate_positions_table():
                     ))
             conn.commit()
     except Exception as e:
-        print(f"Migration note: {e}")
+        logger.exception(f"Migration note: {e}")
 
 
 def _migrate_options_table():
@@ -96,7 +99,7 @@ def _migrate_options_table():
                     ))
             conn.commit()
     except Exception as e:
-        print(f"Options migration note: {e}")
+        logger.exception(f"Options migration note: {e}")
 
 
 def _migrate_ledger_table():
@@ -116,7 +119,7 @@ def _migrate_ledger_table():
                     ))
             conn.commit()
     except Exception as e:
-        print(f"Ledger migration note: {e}")
+        logger.exception(f"Ledger migration note: {e}")
 
 
 def _migrate_recurring_columns():
@@ -132,7 +135,7 @@ def _migrate_recurring_columns():
                     ))
             conn.commit()
     except Exception as e:
-        print(f"Recurring migration note: {e}")
+        logger.exception(f"Recurring migration note: {e}")
 
 
 def get_db():

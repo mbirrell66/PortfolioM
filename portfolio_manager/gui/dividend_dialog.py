@@ -10,6 +10,9 @@ from database.models import Dividend
 from services.portfolio_service import PortfolioService
 import datetime
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class DividendEntryDialog(QDialog):
     """Dialog for entering dividend payments."""
@@ -138,7 +141,7 @@ class DividendEntryDialog(QDialog):
             self.ticker_combo.clear()
             self.ticker_combo.addItems(tickers)
         except Exception as e:
-            print(f"Error loading positions: {e}")
+            logger.exception(f"Error loading positions: {e}")
     
     def update_position_details(self):
         """Update position details when ticker is selected."""
@@ -167,7 +170,7 @@ class DividendEntryDialog(QDialog):
                 self.position_table.setRowCount(0)
                 
         except Exception as e:
-            print(f"Error updating position details: {e}")
+            logger.exception(f"Error updating position details: {e}")
     
     def update_total_amount(self):
         """Update total amount when amount per share changes."""
@@ -186,7 +189,7 @@ class DividendEntryDialog(QDialog):
                 self.total_amount_label.setText("Total: $0.00")
                 
         except Exception as e:
-            print(f"Error updating total amount: {e}")
+            logger.exception(f"Error updating total amount: {e}")
     
     def save_dividend(self):
         """Save dividend payment to database."""
@@ -233,4 +236,4 @@ class DividendEntryDialog(QDialog):
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save dividend payment: {str(e)}")
-            print(f"Error saving dividend: {e}")
+            logger.error(f"Error saving dividend: {e}")

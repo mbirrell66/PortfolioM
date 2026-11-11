@@ -8,6 +8,9 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
 from PySide6.QtCore import Qt, QDate
 from services.portfolio_service import PortfolioService
 
+import logging
+logger = logging.getLogger(__name__)
+
 class StockSplitDialog(QDialog):
     """Dialog for adding stock splits."""
     
@@ -106,7 +109,7 @@ class StockSplitDialog(QDialog):
             if self.ticker and self.ticker in tickers:
                 self.ticker_combo.setCurrentText(self.ticker)
         except Exception as e:
-            print(f"Error loading ticker data: {e}")
+            logger.exception(f"Error loading ticker data: {e}")
         
     def get_split_data(self):
         """Get the stock split data entered by user."""

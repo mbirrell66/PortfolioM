@@ -19,6 +19,9 @@ from services.portfolio_service import PortfolioService
 import pandas as pd
 import numpy as np
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 _TAB_SS = """
     QWidget { background-color: #0F1117; }
@@ -258,7 +261,7 @@ class PortfolioOptimizationTab(QWidget):
             self.update_rp_contributions_table(tickers)
             
         except Exception as e:
-            print(f"Error loading portfolio data: {e}")
+            logger.exception(f"Error loading portfolio data: {e}")
     
     def update_mv_results_table(self, tickers):
         """Update Mean-Variance optimization results table."""
@@ -317,7 +320,7 @@ class PortfolioOptimizationTab(QWidget):
                 self.mv_sharpe_label.setText("Error")
                 
         except Exception as e:
-            print(f"Error in Mean-Variance optimization: {e}")
+            logger.exception(f"Error in Mean-Variance optimization: {e}")
     
     def run_risk_parity_optimization(self):
         """Run Risk Parity optimization."""
@@ -353,7 +356,7 @@ class PortfolioOptimizationTab(QWidget):
                 self.rp_risk_label.setText("Error")
                 
         except Exception as e:
-            print(f"Error in Risk Parity optimization: {e}")
+            logger.exception(f"Error in Risk Parity optimization: {e}")
     
     def generate_efficient_frontier(self):
         """Generate efficient frontier."""
@@ -382,7 +385,7 @@ class PortfolioOptimizationTab(QWidget):
             
             # In a real implementation, this would display the frontier chart
             # For now, we'll just show the number of points generated
-            print(f"Generated {len(frontier_points)} efficient frontier points")
+            logger.info(f"Generated {len(frontier_points)} efficient frontier points")
             
         except Exception as e:
-            print(f"Error generating efficient frontier: {e}")
+            logger.exception(f"Error generating efficient frontier: {e}")

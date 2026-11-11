@@ -21,7 +21,9 @@ from datetime import datetime
 import time
 from typing import List, Dict
 import threading
-import yfinance as yf
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 
@@ -153,7 +155,7 @@ class RSSFeedWorker(QThread):
                         self.progress_updated.emit(i + 1, total_feeds)
                         
                 except Exception as e:
-                    print(f"Error fetching {feed_url}: {e}")
+                    logger.exception(f"Error fetching {feed_url}: {e}")
                     self.error_occurred.emit(f"Error fetching {feed_url}: {str(e)}")
                     continue
                     
@@ -164,7 +166,7 @@ class RSSFeedWorker(QThread):
             self.feed_fetched.emit(all_entries)
             
         except Exception as e:
-            print(f"Error in RSS worker: {e}")
+            logger.exception(f"Error in RSS worker: {e}")
             import traceback
             traceback.print_exc()
             self.error_occurred.emit(f"Error in RSS worker: {str(e)}")
@@ -279,7 +281,7 @@ class NewsTab(QWidget):
             positions = self.portfolio_service.get_positions()
             return [pos.ticker for pos in positions if pos.ticker]
         except Exception as e:
-            print(f"Error getting portfolio tickers: {e}")
+            logger.exception(f"Error getting portfolio tickers: {e}")
             return []
     
     def setup_feeds_timer(self):
@@ -290,7 +292,7 @@ class NewsTab(QWidget):
             if self.auto_refresh_checkbox.isChecked():
                 self.timer.start(15 * 60 * 1000)  # 15 minutes in milliseconds
         except Exception as e:
-            print(f"Error setting up timer: {e}")
+            logger.exception(f"Error setting up timer: {e}")
             
     def refresh_news(self):
         """Fetch news from RSS feeds."""
@@ -324,7 +326,7 @@ class NewsTab(QWidget):
             
         except Exception as e:
             self.status_bar.showMessage(f"Error starting news refresh: {str(e)}")
-            print(f"Error in refresh_news: {e}")
+            logger.error(f"Error in refresh_news: {e}")
             import traceback
             traceback.print_exc()
     
@@ -338,7 +340,7 @@ class NewsTab(QWidget):
                 feed_url = f"https://finance.yahoo.com/quote/{ticker_upper}/news"
                 feeds.append(feed_url)
             except Exception as e:
-                print(f"Error creating feed for {ticker}: {e}")
+                logger.exception(f"Error creating feed for {ticker}: {e}")
                 continue
         return feeds
             
@@ -350,7 +352,7 @@ class NewsTab(QWidget):
             self.status_bar.showMessage(f"Fetched {len(entries)} news items")
             self.progress_bar.setVisible(False)
         except Exception as e:
-            print(f"Error in on_feeds_fetched: {e}")
+            logger.exception(f"Error in on_feeds_fetched: {e}")
             self.status_bar.showMessage(f"Error displaying news: {str(e)}")
             self.progress_bar.setVisible(False)
             
@@ -359,7 +361,7 @@ class NewsTab(QWidget):
         try:
             self.progress_bar.setValue(int((current / total) * 100))
         except Exception as e:
-            print(f"Error in on_progress_update: {e}")
+            logger.exception(f"Error in on_progress_update: {e}")
             
     def display_news(self):
         """Display news in table."""
@@ -385,6 +387,6 @@ class NewsTab(QWidget):
             
     def on_error(self, error_msg: str):
         """Handle errors."""
-        print(f"News Error: {error_msg}")
+        logger.error(f"News Error: {error_msg}")
         self.status_bar.showMessage(f"Error: {error_msg}")
         self.progress_bar.setVisible(False)

@@ -6,6 +6,9 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QSpinBox, QGroupBox, QMessageBox)
 from PySide6.QtCore import Qt
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 _TAB_SS = """
     QWidget { background-color: #0F1117; }
@@ -184,7 +187,7 @@ class SettingsTab(QWidget):
         try:
             self._apply_saved_settings()
         except Exception as e:
-            print(f"Error loading settings: {e}")
+            logger.exception(f"Error loading settings: {e}")
 
     def _apply_saved_settings(self):
         """Apply settings from config/settings.json to the form widgets.

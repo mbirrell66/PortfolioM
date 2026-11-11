@@ -78,10 +78,11 @@ class PortfolioTableModel(QAbstractTableModel):
 
     def _prices(self):
         if not self._price_cache:
-            for pos in self.positions:
-                self._price_cache[pos.ticker] = (
-                    self.portfolio_service.get_current_price(pos.ticker)
-                )
+            data = self.portfolio_service.get_current_prices(self.positions)
+            self._price_cache = {
+                pos.ticker: (data[pos.ticker]['current_price'] if pos.ticker in data else 0.0)
+                for pos in self.positions
+            }
         return self._price_cache
 
     def _dca(self):
